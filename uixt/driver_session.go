@@ -41,7 +41,7 @@ type DriverRequests struct {
 }
 
 func NewDriverSession() *DriverSession {
-	timeout := 30 * time.Second
+	timeout := 120 * time.Second
 	session := &DriverSession{
 		ctx:     context.Background(),
 		ID:      "<SessionNotInit>",
