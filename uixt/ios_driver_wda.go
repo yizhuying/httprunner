@@ -436,6 +436,13 @@ func (wd *WDADriver) AppLaunch(bundleId string) (err error) {
 	// 超时两分钟
 	_, err = wd.Session.POST(data, "/wings/apps/launch", option.WithTimeout(120))
 	if err != nil {
+		// Check for untrusted certificate error
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "has not been explicitly trusted by the user") ||
+			strings.Contains(errMsg, "invalid code signature") ||
+			strings.Contains(errMsg, "inadequate entitlements") {
+			return errors.Wrap(code.DeviceUntrustedCertError, "App certificate not trusted: "+bundleId)
+		}
 		return errors.Wrap(err, "wda app launch failed")
 	}
 	return nil
@@ -443,10 +450,17 @@ func (wd *WDADriver) AppLaunch(bundleId string) (err error) {
 
 func (wd *WDADriver) AppLaunchUnattached(bundleId string) (err error) {
 	log.Info().Str("bundleId", bundleId).Msg("WDADriver.AppLaunchUnattached")
-	// [[FBRoute POST:@"/wda/apps/launchUnattached"].withoutSession respondWithTarget:self action:@selector(handleLaunchUnattachedApp:)]
+	// [[FBRoute POST:@"/wda/apps/launchUnattached"].withoutSession respondWithTarget:self action:@selector(handleLaunchUnattachedApp:)]]
 	data := map[string]interface{}{"bundleId": bundleId}
 	_, err = wd.Session.POST(data, "/wda/apps/launchUnattached")
 	if err != nil {
+		// Check for untrusted certificate error
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "has not been explicitly trusted by the user") ||
+			strings.Contains(errMsg, "invalid code signature") ||
+			strings.Contains(errMsg, "inadequate entitlements") {
+			return errors.Wrap(code.DeviceUntrustedCertError, "App certificate not trusted: "+bundleId)
+		}
 		return errors.Wrap(err, "wda app launchUnattached failed")
 	}
 	return nil
