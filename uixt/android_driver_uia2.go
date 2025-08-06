@@ -533,7 +533,6 @@ func (ud *UIA2Driver) TouchByEvents(events []types.TouchEvent, opts ...option.Ac
 			log.Warn().Int("action", event.Action).Msg("Unknown action type, skipping")
 			continue
 		}
-
 		actions = append(actions, actionMap)
 	}
 
@@ -556,10 +555,10 @@ func (ud *UIA2Driver) TouchByEvents(events []types.TouchEvent, opts ...option.Ac
 
 // SwipeWithDirection 向指定方向滑动任意距离
 // direction: 滑动方向 ("up", "down", "left", "right")
-// startX, startY: 起始坐标
-// minDistance, maxDistance: 距离范围，如果相等则为固定距离，否则为随机距离
-func (ud *UIA2Driver) SwipeWithDirection(direction string, startX, startY, minDistance, maxDistance float64, opts ...option.ActionOption) error {
-	absStartX, absStartY, err := convertToAbsolutePoint(ud, startX, startY)
+// fromX, fromY: 起始坐标
+// simMinDistance, simMaxDistance: 距离范围，如果相等则为固定距离，否则为随机距离
+func (ud *UIA2Driver) SIMSwipeWithDirection(direction string, fromX, fromY, simMinDistance, simMaxDistance float64, opts ...option.ActionOption) error {
+	absStartX, absStartY, err := convertToAbsolutePoint(ud, fromX, fromY)
 	if err != nil {
 		return err
 	}
@@ -569,7 +568,7 @@ func (ud *UIA2Driver) SwipeWithDirection(direction string, startX, startY, minDi
 
 	log.Info().Str("direction", direction).
 		Float64("startX", absStartX).Float64("startY", absStartY).
-		Float64("minDistance", minDistance).Float64("maxDistance", maxDistance).
+		Float64("minDistance", simMinDistance).Float64("maxDistance", simMaxDistance).
 		Str("deviceModel", deviceModel).
 		Int("deviceID", deviceParams.DeviceID).
 		Float64("pressure", deviceParams.Pressure).
@@ -596,7 +595,7 @@ func (ud *UIA2Driver) SwipeWithDirection(direction string, startX, startY, minDi
 
 	// 使用滑动仿真算法生成触摸事件序列
 	events, err := simulator.GenerateSlideWithRandomDistance(
-		absStartX, absStartY, slideDirection, minDistance, maxDistance,
+		absStartX, absStartY, slideDirection, simMinDistance, simMaxDistance,
 		deviceParams.DeviceID, deviceParams.Pressure, deviceParams.Size)
 	if err != nil {
 		return fmt.Errorf("generate slide events failed: %v", err)
@@ -608,15 +607,15 @@ func (ud *UIA2Driver) SwipeWithDirection(direction string, startX, startY, minDi
 
 // SwipeInArea 在指定区域内向指定方向滑动任意距离
 // direction: 滑动方向 ("up", "down", "left", "right")
-// areaStartX, areaStartY, areaEndX, areaEndY: 区域范围(相对坐标)
-// minDistance, maxDistance: 距离范围，如果相等则为固定距离，否则为随机距离
-func (ud *UIA2Driver) SwipeInArea(direction string, areaStartX, areaStartY, areaEndX, areaEndY, minDistance, maxDistance float64, opts ...option.ActionOption) error {
+// simAreaStartX, simAreaStartY, simAreaEndX, simAreaEndY: 区域范围(相对坐标)
+// simMinDistance, simMaxDistance: 距离范围，如果相等则为固定距离，否则为随机距离
+func (ud *UIA2Driver) SIMSwipeInArea(direction string, simAreaStartX, simAreaStartY, simAreaEndX, simAreaEndY, simMinDistance, simMaxDistance float64, opts ...option.ActionOption) error {
 	// 转换区域坐标为绝对坐标
-	absAreaStartX, absAreaStartY, err := convertToAbsolutePoint(ud, areaStartX, areaStartY)
+	absAreaStartX, absAreaStartY, err := convertToAbsolutePoint(ud, simAreaStartX, simAreaStartY)
 	if err != nil {
 		return err
 	}
-	absAreaEndX, absAreaEndY, err := convertToAbsolutePoint(ud, areaEndX, areaEndY)
+	absAreaEndX, absAreaEndY, err := convertToAbsolutePoint(ud, simAreaEndX, simAreaEndY)
 	if err != nil {
 		return err
 	}
@@ -636,7 +635,7 @@ func (ud *UIA2Driver) SwipeInArea(direction string, areaStartX, areaStartY, area
 	log.Info().Str("direction", direction).
 		Float64("areaStartX", absAreaStartX).Float64("areaStartY", absAreaStartY).
 		Float64("areaEndX", absAreaEndX).Float64("areaEndY", absAreaEndY).
-		Float64("minDistance", minDistance).Float64("maxDistance", maxDistance).
+		Float64("minDistance", simMinDistance).Float64("maxDistance", simMaxDistance).
 		Str("deviceModel", deviceModel).
 		Int("deviceID", deviceParams.DeviceID).
 		Float64("pressure", deviceParams.Pressure).
@@ -664,7 +663,7 @@ func (ud *UIA2Driver) SwipeInArea(direction string, areaStartX, areaStartY, area
 	// 使用滑动仿真算法生成区域内滑动的触摸事件序列
 	events, err := simulator.GenerateSlideInArea(
 		absAreaStartX, absAreaStartY, absAreaEndX, absAreaEndY,
-		slideDirection, minDistance, maxDistance,
+		slideDirection, simMinDistance, simMaxDistance,
 		deviceParams.DeviceID, deviceParams.Pressure, deviceParams.Size)
 	if err != nil {
 		return fmt.Errorf("generate slide in area events failed: %v", err)
@@ -675,15 +674,15 @@ func (ud *UIA2Driver) SwipeInArea(direction string, areaStartX, areaStartY, area
 }
 
 // SwipeFromPointToPoint 指定起始点和结束点进行滑动
-// startX, startY: 起始坐标(相对坐标)
-// endX, endY: 结束坐标(相对坐标)
-func (ud *UIA2Driver) SwipeFromPointToPoint(startX, startY, endX, endY float64, opts ...option.ActionOption) error {
+// fromX, fromY: 起始坐标(相对坐标)
+// toX, toY: 结束坐标(相对坐标)
+func (ud *UIA2Driver) SIMSwipeFromPointToPoint(fromX, fromY, toX, toY float64, opts ...option.ActionOption) error {
 	// 转换起始点和结束点为绝对坐标
-	absStartX, absStartY, err := convertToAbsolutePoint(ud, startX, startY)
+	absStartX, absStartY, err := convertToAbsolutePoint(ud, fromX, fromY)
 	if err != nil {
 		return err
 	}
-	absEndX, absEndY, err := convertToAbsolutePoint(ud, endX, endY)
+	absEndX, absEndY, err := convertToAbsolutePoint(ud, toX, toY)
 	if err != nil {
 		return err
 	}
@@ -717,7 +716,7 @@ func (ud *UIA2Driver) SwipeFromPointToPoint(startX, startY, endX, endY float64, 
 
 // ClickAtPoint 点击相对坐标
 // x, y: 点击坐标(相对坐标)
-func (ud *UIA2Driver) ClickAtPoint(x, y float64, opts ...option.ActionOption) error {
+func (ud *UIA2Driver) SIMClickAtPoint(x, y float64, opts ...option.ActionOption) error {
 	// 转换为绝对坐标
 	absX, absY, err := convertToAbsolutePoint(ud, x, y)
 	if err != nil {
@@ -787,6 +786,72 @@ func (ud *UIA2Driver) Input(text string, opts ...option.ActionOption) (err error
 	urlStr := fmt.Sprintf("/session/%s/keys", ud.Session.ID)
 	_, err = ud.Session.POST(data, urlStr)
 	return
+}
+
+// SIMInput 仿真输入函数，模拟人类分批输入行为
+// 将文本智能分割，英文单词和数字保持完整，中文按1-2个字符分割
+func (ud *UIA2Driver) SIMInput(text string, opts ...option.ActionOption) error {
+	log.Info().Str("text", text).Msg("UIA2Driver.SIMInput")
+
+	if text == "" {
+		return nil
+	}
+
+	// 创建输入仿真器（使用默认配置）
+	inputSimulator := simulation.NewInputSimulatorAPI(nil)
+
+	// 生成输入片段（使用智能分割算法，所有参数使用默认值）
+	inputReq := simulation.InputRequest{
+		Text: text,
+		// MinSegmentLen, MaxSegmentLen, MinDelayMs, MaxDelayMs 使用默认值
+	}
+
+	response := inputSimulator.GenerateInputSegments(inputReq)
+	if !response.Success {
+		return fmt.Errorf("failed to generate input segments: %s", response.Message)
+	}
+
+	log.Info().Int("segments", response.Metrics.TotalSegments).
+		Int("totalDelayMs", response.Metrics.TotalDelayMs).
+		Int("estimatedTimeMs", response.Metrics.EstimatedTimeMs).
+		Msg("Input segments generated")
+
+	// 逐个输入每个片段
+	var segmentErrCnt int
+	for _, segment := range response.Segments {
+		// 使用SendUnicodeKeys进行输入（内部已包含Session.POST请求）
+		segmentErr := ud.SendUnicodeKeys(segment.Text, opts...)
+		if segmentErr != nil {
+			segmentErrCnt++
+			log.Info().Err(segmentErr).Int("segmentErrCnt", segmentErrCnt).
+				Msg("segments err")
+		}
+
+		log.Debug().Str("segment", segment.Text).Int("index", segment.Index).
+			Int("charLen", segment.CharLen).Msg("Successfully input segment")
+
+		// 如果有延迟时间，则等待
+		if segment.DelayMs > 0 {
+			time.Sleep(time.Duration(segment.DelayMs) * time.Millisecond)
+
+			log.Debug().Int("delayMs", segment.DelayMs).
+				Msg("Delay between input segments")
+		}
+	}
+	if segmentErrCnt > 0 {
+		data := map[string]interface{}{
+			"text": text,
+		}
+		option.MergeOptions(data, opts...)
+		urlStr := fmt.Sprintf("/session/%s/keys", ud.Session.ID)
+		_, err := ud.Session.POST(data, urlStr)
+		return err
+	}
+	log.Info().Int("totalSegments", response.Metrics.TotalSegments).
+		Int("actualDelayMs", response.Metrics.TotalDelayMs).
+		Msg("SIMInput completed successfully")
+
+	return nil
 }
 
 func (ud *UIA2Driver) SendUnicodeKeys(text string, opts ...option.ActionOption) (err error) {

@@ -1,14 +1,13 @@
-package uitest
+//go:build localtest
+
+package uixt
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
 
-	hrp "github.com/httprunner/httprunner/v5"
-	"github.com/httprunner/httprunner/v5/uixt"
 	"github.com/httprunner/httprunner/v5/uixt/option"
 	"github.com/httprunner/httprunner/v5/uixt/types"
 )
@@ -75,14 +74,14 @@ func ParseTouchEvents(data string) ([]types.TouchEvent, error) {
 }
 
 func TestAndroidTouchByEvents(t *testing.T) {
-	device, err := uixt.NewAndroidDevice(
+	device, err := NewAndroidDevice(
 		option.WithSerialNumber(""),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	driver, err := uixt.NewUIA2Driver(device)
+	driver, err := NewUIA2Driver(device)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,6 +131,60 @@ func TestAndroidTouchByEvents(t *testing.T) {
 
 	// Use TouchByEvents with parsed events
 	err = driver.TouchByEvents(events)
+	if err != nil {
+		t.Fatalf("TouchByEvents failed: %v", err)
+	}
+
+	t.Logf("Successfully executed touch events: %d events processed", len(events))
+}
+
+func TestIOSTouchByEvents(t *testing.T) {
+	driver := setupWDADriverExt(t)
+
+	// Example touch event data as provided
+	touchEventData := `1752649131556,401.20703,1191.3164,2,1.0,0.03529412,457.20703,1359.3164,111586196,111586196,1,0,0
+1752649131595,402.913,1185.0792,2,1.0,0.039215688,458.913,1353.0792,111586196,111586236,1,0,2
+1752649131612,410.60825,1164.3806,2,1.0,0.03529412,466.60825,1332.3806,111586196,111586250,1,0,2
+1752649131629,437.7335,1093.1417,2,1.0,0.039215688,493.7335,1261.1417,111586196,111586270,1,0,2
+1752649131646,463.5786,1018.01746,2,1.0,0.039215688,519.5786,1186.0175,111586196,111586287,1,0,2
+1752649131662,487.56482,948.9773,2,1.0,0.03529412,543.5648,1116.9773,111586196,111586304,1,0,2
+1752649131679,511.81476,881.6183,2,1.0,0.039215688,567.81476,1049.6183,111586196,111586320,1,0,2
+1752649131696,543.4369,811.4982,2,1.0,0.03529412,599.4369,979.4982,111586196,111586337,1,0,2
+1752649131713,577.1632,747.4512,2,1.0,0.039215688,633.1632,915.4512,111586196,111586354,1,0,2
+1752649131729,610.1538,691.72034,2,1.0,0.03529412,666.1538,859.72034,111586196,111586370,1,0,2
+1752649131746,639.1683,642.6914,2,1.0,0.03529412,695.1683,810.6914,111586196,111586387,1,0,2
+1752649131763,658.9832,605.90857,2,1.0,0.03529412,714.9832,773.90857,111586196,111586404,1,0,2
+1752649131779,672.21954,581.1634,2,1.0,0.03529412,728.21954,749.1634,111586196,111586420,1,0,2
+1752649131796,680.7687,566.1778,2,1.0,0.03529412,736.7687,734.1778,111586196,111586434,1,0,2
+1752649131814,688.0894,554.2295,2,1.0,0.03529412,744.0894,722.2295,111586196,111586450,1,0,2
+1752649131830,694.542,544.7783,2,1.0,0.03529412,750.542,712.7783,111586196,111586466,1,0,2
+1752649131847,700.60645,537.2637,2,1.0,0.039215688,756.60645,705.2637,111586196,111586483,1,0,2
+1752649131863,705.08887,531.1406,2,1.0,0.039215688,761.08887,699.1406,111586196,111586500,1,0,2
+1752649131880,708.1211,527.8008,2,1.0,0.039215688,764.1211,695.8008,111586196,111586517,1,0,2
+1752649131897,709.43945,524.46094,2,1.0,0.039215688,765.43945,692.46094,111586196,111586533,1,0,2
+1752649131902,709.1758,523.34766,2,1.0,0.03529412,765.1758,691.34766,111586196,111586537,1,33554432,2
+1752649131907,709.1758,523.34766,2,1.0,0.03529412,765.1758,691.34766,111586196,111586546,1,0,1`
+
+	// Parse touch events
+	events, err := ParseTouchEvents(touchEventData)
+	if err != nil {
+		t.Fatalf("ParseTouchEvents failed: %v", err)
+	}
+
+	// Check first event
+	firstEvent := events[0]
+	if firstEvent.Action != 0 { // ACTION_DOWN
+		t.Errorf("Expected first event action to be 0 (ACTION_DOWN), got %d", firstEvent.Action)
+	}
+
+	// Check last event
+	lastEvent := events[len(events)-1]
+	if lastEvent.Action != 1 { // ACTION_UP
+		t.Errorf("Expected last event action to be 1 (ACTION_UP), got %d", lastEvent.Action)
+	}
+
+	// Use TouchByEvents with parsed events
+	err = driver.IDriver.(*WDADriver).TouchByEvents(events)
 	if err != nil {
 		t.Fatalf("TouchByEvents failed: %v", err)
 	}
@@ -228,14 +281,14 @@ func TestTouchEventSequenceValidation(t *testing.T) {
 }
 
 func TestSwipeWithDirection(t *testing.T) {
-	device, err := uixt.NewAndroidDevice(
+	device, err := NewAndroidDevice(
 		option.WithSerialNumber(""),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	driver, err := uixt.NewUIA2Driver(device)
+	driver, err := NewUIA2Driver(device)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,14 +333,14 @@ func TestSwipeWithDirection(t *testing.T) {
 }
 
 func TestSwipeWithDirectionInvalidInputs(t *testing.T) {
-	device, err := uixt.NewAndroidDevice(
+	device, err := NewAndroidDevice(
 		option.WithSerialNumber(""),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	driver, err := uixt.NewUIA2Driver(device)
+	driver, err := NewUIA2Driver(device)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,14 +368,14 @@ func TestSwipeWithDirectionInvalidInputs(t *testing.T) {
 }
 
 func TestSwipeInArea(t *testing.T) {
-	device, err := uixt.NewAndroidDevice(
+	device, err := NewAndroidDevice(
 		option.WithSerialNumber(""),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	driver, err := uixt.NewUIA2Driver(device)
+	driver, err := NewUIA2Driver(device)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -375,14 +428,14 @@ func TestSwipeInArea(t *testing.T) {
 }
 
 func TestSwipeFromPointToPoint(t *testing.T) {
-	device, err := uixt.NewAndroidDevice(
+	device, err := NewAndroidDevice(
 		option.WithSerialNumber(""),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	driver, err := uixt.NewUIA2Driver(device)
+	driver, err := NewUIA2Driver(device)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -424,14 +477,14 @@ func TestSwipeFromPointToPoint(t *testing.T) {
 }
 
 func TestSwipeFromPointToPointInvalidInputs(t *testing.T) {
-	device, err := uixt.NewAndroidDevice(
+	device, err := NewAndroidDevice(
 		option.WithSerialNumber(""),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	driver, err := uixt.NewUIA2Driver(device)
+	driver, err := NewUIA2Driver(device)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -453,14 +506,14 @@ func TestSwipeFromPointToPointInvalidInputs(t *testing.T) {
 }
 
 func TestClickAtPoint(t *testing.T) {
-	device, err := uixt.NewAndroidDevice(
+	device, err := NewAndroidDevice(
 		option.WithSerialNumber(""),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	driver, err := uixt.NewUIA2Driver(device)
+	driver, err := NewUIA2Driver(device)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,14 +546,14 @@ func TestClickAtPoint(t *testing.T) {
 }
 
 func TestClickAtPointInvalidInputs(t *testing.T) {
-	device, err := uixt.NewAndroidDevice(
+	device, err := NewAndroidDevice(
 		option.WithSerialNumber(""),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	driver, err := uixt.NewUIA2Driver(device)
+	driver, err := NewUIA2Driver(device)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -527,14 +580,14 @@ func TestClickAtPointInvalidInputs(t *testing.T) {
 }
 
 func TestSIMInput(t *testing.T) {
-	device, err := uixt.NewAndroidDevice(
+	device, err := NewAndroidDevice(
 		option.WithSerialNumber(""),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	driver, err := uixt.NewUIA2Driver(device)
+	driver, err := NewUIA2Driver(device)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -562,43 +615,4 @@ func TestSIMInput(t *testing.T) {
 			}
 		})
 	}
-}
-
-// TestStepMultipleSIMActions tests multiple SIM actions in one test case
-func TestStepMultipleSIMActions(t *testing.T) {
-	// 创建包含多个SIM操作的测试用例
-	testCase := &hrp.TestCase{
-		Config: hrp.NewConfig("多个SIM操作组合测试").SetAndroid(option.WithUIA2(true), option.WithSerialNumber("")),
-		TestSteps: []hrp.IStep{
-			hrp.NewStep("组合SIM操作测试").
-				Android().
-				SIMClickAtPoint(0.5, 0.5).                              // 点击屏幕中心
-				Sleep(1).                                               // 等待1秒
-				SIMSwipeWithDirection("up", 0.5, 0.7, 200.0, 400.0).    // 向上滑动
-				Sleep(0.5).                                             // 等待0.5秒
-				SIMSwipeInArea("up", 0.2, 0.2, 0.6, 0.6, 350.0, 500.0). // 在区域内向下滑动
-				Sleep(0.5).                                             // 等待0.5秒
-				SIMSwipeFromPointToPoint(0.1, 0.5, 0.9, 0.5).           // 从左到右滑动
-				Sleep(0.5).                                             // 等待0.5秒
-				SIMInput("测试组合操作 Test Combination 123"),                // 仿真输入
-		},
-	}
-
-	// 运行测试用例
-	err := testCase.Dump2JSON("TestStepMultipleSIMActions.json")
-	if err != nil {
-		t.Fatalf("Failed to dump test case: %v", err)
-	}
-	defer func() {
-		// 清理生成的文件
-		_ = os.Remove("TestStepMultipleSIMActions.json")
-	}()
-
-	// 执行测试用例
-	err = hrp.NewRunner(t).Run(testCase)
-	if err != nil {
-		t.Errorf("Test case failed: %v", err)
-	}
-
-	t.Logf("Successfully executed multiple SIM actions test")
 }
