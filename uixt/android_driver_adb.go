@@ -24,7 +24,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
-	"github.com/httprunner/funplugin/myexec"
 	"github.com/httprunner/httprunner/v5/code"
 	"github.com/httprunner/httprunner/v5/internal/config"
 	"github.com/httprunner/httprunner/v5/internal/utf7"
@@ -713,7 +712,7 @@ func (ad *ADBDriver) StopCaptureLog() (result interface{}, err error) {
 		actionLogDirPath := config.GetConfig().ActionLogDirPath()
 		files := []string{}
 		actionLogRegStr := `.*data_\d+\.txt`
-		myexec.RunCommand("adb", "-s", ad.Device.Serial(), "pull", config.DeviceActionLogFilePath, actionLogDirPath)
+		ad.Device.PullFolder(config.DeviceActionLogFilePath, actionLogDirPath)
 		err = filepath.Walk(actionLogDirPath, func(path string, info fs.FileInfo, err error) error {
 			// 只是需要日志文件
 			if ok, _ := regexp.MatchString(actionLogRegStr, path); ok {
