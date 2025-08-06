@@ -72,7 +72,7 @@ func ParseTouchEvents(data string) ([]types.TouchEvent, error) {
 	return events, nil
 }
 
-func TestAndroidTouchByEvents(t *testing.T) {
+func TestIOSTouchByEvents(t *testing.T) {
 	device, err := NewIOSDevice(
 		option.WithUDID(""),
 	)
