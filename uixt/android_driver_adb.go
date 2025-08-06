@@ -713,7 +713,6 @@ func (ad *ADBDriver) StopCaptureLog() (result interface{}, err error) {
 		actionLogDirPath := config.GetConfig().ActionLogDirPath()
 		files := []string{}
 		actionLogRegStr := `.*data_\d+\.txt`
-		// ad.Device.RunShellCommand("pull", config.DeviceActionLogFilePath, actionLogDirPath)
 		myexec.RunCommand("adb", "-s", ad.Device.Serial(), "pull", config.DeviceActionLogFilePath, actionLogDirPath)
 		err = filepath.Walk(actionLogDirPath, func(path string, info fs.FileInfo, err error) error {
 			// 只是需要日志文件
