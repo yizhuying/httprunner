@@ -707,7 +707,7 @@ func (ad *ADBDriver) StopCaptureLog() (result interface{}, err error) {
 		log.Error().Err(err).Msg("failed to close adb log writer")
 	}
 	pointRes := ConvertPoints(ad.Device.Logcat.logs)
-	//将pointRes置为空数组	// 没有解析到打点日志，走兜底逻辑
+	// 没有解析到打点日志，走兜底逻辑
 	if len(pointRes) == 0 {
 		log.Info().Msg("action log is null, use action file >>>")
 		actionLogDirPath := config.GetConfig().ActionLogDirPath()
