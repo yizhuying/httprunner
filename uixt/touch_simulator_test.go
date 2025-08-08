@@ -137,42 +137,6 @@ func TestIOSTouchByEvents(t *testing.T) {
 	t.Logf("Successfully executed touch events: %d events processed", len(events))
 }
 
-func TestIOSTouchByEvents(t *testing.T) {
-	driver := setupWDADriverExt(t)
-
-	// Example touch event data as provided
-	touchEventData := `1752649131556,401.20703,1191.3164,2,1.0,0.03529412,400.20703,400.3164,111586196,111586196,1,0,0
-1752649131595,402.913,1185.0792,2,1.0,0.039215688,300.913,300.0792,111586196,111586236,1,0,2
-1752649131612,410.60825,1164.3806,2,1.0,0.03529412,250.60825,250.3806,111586196,111586250,1,0,2
-1752649131907,709.1758,523.34766,2,1.0,0.03529412,200.1758,200.34766,111586196,111586546,1,0,1`
-
-	// Parse touch events
-	events, err := ParseTouchEvents(touchEventData)
-	if err != nil {
-		t.Fatalf("ParseTouchEvents failed: %v", err)
-	}
-
-	// Check first event
-	firstEvent := events[0]
-	if firstEvent.Action != 0 { // ACTION_DOWN
-		t.Errorf("Expected first event action to be 0 (ACTION_DOWN), got %d", firstEvent.Action)
-	}
-
-	// Check last event
-	lastEvent := events[len(events)-1]
-	if lastEvent.Action != 1 { // ACTION_UP
-		t.Errorf("Expected last event action to be 1 (ACTION_UP), got %d", lastEvent.Action)
-	}
-
-	// Use TouchByEvents with parsed events
-	err = driver.IDriver.(*WDADriver).TouchByEvents(events)
-	if err != nil {
-		t.Fatalf("TouchByEvents failed: %v", err)
-	}
-
-	t.Logf("Successfully executed touch events: %d events processed", len(events))
-}
-
 func TestTouchEventParsing(t *testing.T) {
 	// Test single touch event parsing
 	singleEventData := "1752646457403,456.78418,1574.0195,7,1.0,0.016666668,504.78418,1721.0195,924451292,924451292,1,0,0"
