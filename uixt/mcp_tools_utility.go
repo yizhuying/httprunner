@@ -15,7 +15,29 @@ import (
 	"github.com/httprunner/httprunner/v5/uixt/option"
 )
 
-// ToolSleep implements the sleep tool call.
+// extractStartTimeMs extracts start_time_ms from MCP request arguments
+// Returns time.Time (zero if not provided) and any conversion error
+func extractStartTimeMs(request mcp.CallToolRequest) (time.Time, error) {
+	startTimeMs, ok := request.GetArguments()["start_time_ms"]
+	if !ok || startTimeMs == nil {
+		return time.Time{}, nil // Return zero time for normal sleep
+	}
+
+	var ms int64
+	switch v := startTimeMs.(type) {
+	case float64:
+		ms = int64(v)
+	case int64:
+		ms = v
+	case int:
+		ms = int64(v)
+	default:
+		return time.Time{}, fmt.Errorf("invalid start_time_ms type: %T", v)
+	}
+
+	return time.UnixMilli(ms), nil
+}
+
 type ToolSleep struct {
 	// Return data fields - these define the structure of data returned by this tool
 	Seconds  float64 `json:"seconds" desc:"Duration in seconds that was slept"`
@@ -33,6 +55,7 @@ func (t *ToolSleep) Description() string {
 func (t *ToolSleep) Options() []mcp.ToolOption {
 	return []mcp.ToolOption{
 		mcp.WithNumber("seconds", mcp.Description("Number of seconds to sleep")),
+		mcp.WithNumber("start_time_ms", mcp.Description("Start time as Unix milliseconds for strict sleep calculation")),
 	}
 }
 
@@ -70,15 +93,14 @@ func (t *ToolSleep) Implement() server.ToolHandlerFunc {
 			return nil, fmt.Errorf("unsupported sleep duration type: %T", v)
 		}
 
-		// Use context-aware sleep instead of blocking time.Sleep
-		select {
-		case <-time.After(duration):
-			// Normal completion
-		case <-ctx.Done():
-			// Interrupted by context cancellation (interrupt signal, timeout, time limit)
-			log.Info().Msg("sleep interrupted by context cancellation")
-			// Don't return error - let the upper layer handle timeout/time limit logic
+		// Extract start_time_ms and use sleepStrict for unified sleep logic
+		startTime, err := extractStartTimeMs(request)
+		if err != nil {
+			return nil, err
 		}
+
+		milliseconds := int64(actualSeconds * 1000)
+		sleepStrict(ctx, startTime, milliseconds)
 
 		message := fmt.Sprintf("Successfully slept for %v seconds", actualSeconds)
 		returnData := ToolSleep{
@@ -91,9 +113,24 @@ func (t *ToolSleep) Implement() server.ToolHandlerFunc {
 }
 
 func (t *ToolSleep) ConvertActionToCallToolRequest(action option.MobileAction) (mcp.CallToolRequest, error) {
-	arguments := map[string]any{
-		"seconds": action.Params,
+	arguments := map[string]any{}
+
+	var seconds float64
+	if param, ok := action.Params.(json.Number); ok {
+		seconds, _ = param.Float64()
+		arguments["seconds"] = seconds
+	} else if param, ok := action.Params.(int64); ok {
+		seconds = float64(param)
+		arguments["seconds"] = seconds
+	} else if sleepConfig, ok := action.Params.(SleepConfig); ok {
+		// When startTime is provided, pass both seconds and startTime
+		seconds = sleepConfig.Seconds
+		arguments["seconds"] = seconds
+		arguments["start_time_ms"] = sleepConfig.StartTime.UnixMilli()
+	} else {
+		return mcp.CallToolRequest{}, fmt.Errorf("invalid sleep params: %v", action.Params)
 	}
+
 	return BuildMCPCallToolRequest(t.Name(), arguments, action), nil
 }
 
@@ -115,6 +152,7 @@ func (t *ToolSleepMS) Description() string {
 func (t *ToolSleepMS) Options() []mcp.ToolOption {
 	return []mcp.ToolOption{
 		mcp.WithNumber("milliseconds", mcp.Description("Number of milliseconds to sleep")),
+		mcp.WithNumber("start_time_ms", mcp.Description("Start time as Unix milliseconds for strict sleep calculation")),
 	}
 }
 
@@ -152,15 +190,13 @@ func (t *ToolSleepMS) Implement() server.ToolHandlerFunc {
 			return nil, fmt.Errorf("unsupported sleep duration type: %T", v)
 		}
 
-		// Use context-aware sleep instead of blocking time.Sleep
-		select {
-		case <-time.After(duration):
-			// Normal completion
-		case <-ctx.Done():
-			// Interrupted by context cancellation (interrupt signal, timeout, time limit)
-			log.Info().Msg("sleep interrupted by context cancellation")
-			// Don't return error - let the upper layer handle timeout/time limit logic
+		// Extract start_time_ms and use sleepStrict for unified sleep logic
+		startTime, err := extractStartTimeMs(request)
+		if err != nil {
+			return nil, err
 		}
+
+		sleepStrict(ctx, startTime, actualMilliseconds)
 
 		message := fmt.Sprintf("Successfully slept for %d milliseconds", actualMilliseconds)
 		returnData := ToolSleepMS{
@@ -173,17 +209,24 @@ func (t *ToolSleepMS) Implement() server.ToolHandlerFunc {
 }
 
 func (t *ToolSleepMS) ConvertActionToCallToolRequest(action option.MobileAction) (mcp.CallToolRequest, error) {
+	arguments := map[string]any{}
+
 	var milliseconds int64
 	if param, ok := action.Params.(json.Number); ok {
 		milliseconds, _ = param.Int64()
+		arguments["milliseconds"] = milliseconds
 	} else if param, ok := action.Params.(int64); ok {
 		milliseconds = param
+		arguments["milliseconds"] = milliseconds
+	} else if sleepConfig, ok := action.Params.(SleepConfig); ok {
+		// When startTime is provided, pass both milliseconds and startTime
+		milliseconds = sleepConfig.Milliseconds
+		arguments["milliseconds"] = milliseconds
+		arguments["start_time_ms"] = sleepConfig.StartTime.UnixMilli()
 	} else {
 		return mcp.CallToolRequest{}, fmt.Errorf("invalid sleep ms params: %v", action.Params)
 	}
-	arguments := map[string]any{
-		"milliseconds": milliseconds,
-	}
+
 	return BuildMCPCallToolRequest(t.Name(), arguments, action), nil
 }
 
