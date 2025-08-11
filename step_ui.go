@@ -1043,6 +1043,22 @@ func runStepMobileUI(s *SessionRunner, step IStep) (stepResult *StepResult, err 
 				continue
 			}
 
+			if action.Method == option.ACTION_StartToGoal {
+				planningResults, err := uiDriver.StartToGoal(ctx,
+					action.Params.(string), action.GetOptions()...)
+				actionResult.Elapsed = time.Since(actionStartTime).Milliseconds()
+				actionResult.Plannings = planningResults
+				stepResult.Actions = append(stepResult.Actions, actionResult)
+				if err != nil {
+					actionResult.Error = err.Error()
+					if !code.IsErrorPredefined(err) {
+						err = errors.Wrap(code.MobileUIDriverError, err.Error())
+					}
+					return stepResult, err
+				}
+				continue
+			}
+
 			// handle AI operations (ai_action, ai_query, ai_assert) with unified result storage
 			if action.Method == option.ACTION_AIAction || action.Method == option.ACTION_Query || action.Method == option.ACTION_AIAssert {
 				var aiResult *uixt.AIExecutionResult
@@ -1068,6 +1084,19 @@ func runStepMobileUI(s *SessionRunner, step IStep) (stepResult *StepResult, err 
 					}
 					return stepResult, err
 				}
+				continue
+			}
+			if action.Method == option.ACTION_GetPasteboard {
+				content, err := uiDriver.GetPasteboard()
+				if err != nil {
+					actionResult.Error = err.Error()
+					if !code.IsErrorPredefined(err) {
+						err = errors.Wrap(code.MobileUIDriverError, err.Error())
+					}
+					return stepResult, err
+				}
+				actionResult.ExtraData = content
+				stepResult.Actions = append(stepResult.Actions, actionResult)
 				continue
 			}
 
