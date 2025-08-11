@@ -292,7 +292,7 @@ func TestDriverExt_AIAction(t *testing.T) {
 func TestDriverExt_AIAction_CompareWithAIAction(t *testing.T) {
 	driver := setupDriverExt(t)
 
-	prompt := "[目标导向]向上滑动屏幕2次"
+	prompt := "[目标导向]打开抖音，点击搜索按钮，搜索张杰，进入内容页停止"
 
 	// Test both methods with the same prompt
 	aiResult, aiErr := driver.StartToGoal(context.Background(), prompt)
