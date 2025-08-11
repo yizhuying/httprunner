@@ -610,27 +610,68 @@ func (d *Device) Pull(remotePath string, dest io.Writer) (err error) {
 	return
 }
 
+func (d *Device) PullFolder(remotePath string, localPath string) (err error) {
+	// Check if remote path exists and is a directory
+	fileInfos, err := d.List(remotePath)
+	if err != nil {
+		return fmt.Errorf("failed to list remote directory: %w", err)
+	}
+
+	// Create local directory if it doesn't exist
+	if err = os.MkdirAll(localPath, 0o755); err != nil {
+		return fmt.Errorf("failed to create local directory: %w", err)
+	}
+
+	// Pull each file/directory recursively
+	for _, fileInfo := range fileInfos {
+		remoteItemPath := remotePath + "/" + fileInfo.Name
+		localItemPath := localPath + "/" + fileInfo.Name
+
+		if fileInfo.IsDir() {
+			// Recursively pull subdirectory
+			if err = d.PullFolder(remoteItemPath, localItemPath); err != nil {
+				return fmt.Errorf("failed to pull subdirectory %s: %w", remoteItemPath, err)
+			}
+		} else {
+			// Pull file
+			if err = d.PullFile(remoteItemPath, localItemPath); err != nil {
+				return fmt.Errorf("failed to pull file %s: %w", remoteItemPath, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (d *Device) PullFile(remotePath string, localPath string) (err error) {
+	// Create local file
+	localFile, err := os.Create(localPath)
+	if err != nil {
+		return fmt.Errorf("failed to create local file: %w", err)
+	}
+	defer localFile.Close()
+
+	// Use existing Pull method to pull file content
+	if err = d.Pull(remotePath, localFile); err != nil {
+		return fmt.Errorf("failed to pull file content: %w", err)
+	}
+
+	return nil
+}
+
 func (d *Device) installViaABBExec(apk io.ReadSeeker, args ...string) (raw []byte, err error) {
 	var (
 		tp       transport
 		filesize int64
 	)
-	timeout := 8
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Minute)
-	defer cancel()
-
 	filesize, err = apk.Seek(0, io.SeekEnd)
 	if err != nil {
 		return nil, err
 	}
-	if tp, err = d.createDeviceTransport(4 * time.Minute); err != nil {
+	if tp, err = d.createDeviceTransport(5 * time.Minute); err != nil {
 		return nil, err
 	}
 	defer func() { _ = tp.Close() }()
-	go func() {
-		<-ctx.Done()
-		_ = tp.Close()
-	}()
 	cmd := "abb_exec:package\x00install\x00-t"
 	for _, arg := range args {
 		cmd += "\x00" + arg
@@ -649,9 +690,6 @@ func (d *Device) installViaABBExec(apk io.ReadSeeker, args ...string) (raw []byt
 		return nil, err
 	}
 	raw, err = tp.ReadBytesAll()
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return nil, fmt.Errorf("installation timed out after %d minutes", timeout)
-	}
 	return
 }
 
