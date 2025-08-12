@@ -2,9 +2,7 @@ package uixt
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -70,28 +68,12 @@ func (t *ToolSleep) Implement() server.ToolHandlerFunc {
 		// Sleep action logic
 		log.Info().Interface("seconds", seconds).Msg("sleeping")
 
-		var duration time.Duration
-		var actualSeconds float64
-		switch v := seconds.(type) {
-		case float64:
-			actualSeconds = v
-			duration = time.Duration(v*1000) * time.Millisecond
-		case int:
-			actualSeconds = float64(v)
-			duration = time.Duration(v) * time.Second
-		case int64:
-			actualSeconds = float64(v)
-			duration = time.Duration(v) * time.Second
-		case string:
-			s, err := builtin.ConvertToFloat64(v)
-			if err != nil {
-				return nil, fmt.Errorf("invalid sleep duration: %v", v)
-			}
-			actualSeconds = s
-			duration = time.Duration(s*1000) * time.Millisecond
-		default:
-			return nil, fmt.Errorf("unsupported sleep duration type: %T", v)
+		// Use Interface2Float64 for unified type conversion
+		actualSeconds, err := builtin.Interface2Float64(seconds)
+		if err != nil {
+			return nil, fmt.Errorf("invalid sleep duration: %v", seconds)
 		}
+		duration := time.Duration(actualSeconds) * time.Second
 
 		// Extract start_time_ms and use sleepStrict for unified sleep logic
 		startTime, err := extractStartTimeMs(request)
@@ -116,19 +98,19 @@ func (t *ToolSleep) ConvertActionToCallToolRequest(action option.MobileAction) (
 	arguments := map[string]any{}
 
 	var seconds float64
-	if param, ok := action.Params.(json.Number); ok {
-		seconds, _ = param.Float64()
-		arguments["seconds"] = seconds
-	} else if param, ok := action.Params.(int64); ok {
-		seconds = float64(param)
-		arguments["seconds"] = seconds
-	} else if sleepConfig, ok := action.Params.(SleepConfig); ok {
+	if sleepConfig, ok := action.Params.(SleepConfig); ok {
 		// When startTime is provided, pass both seconds and startTime
 		seconds = sleepConfig.Seconds
 		arguments["seconds"] = seconds
 		arguments["start_time_ms"] = sleepConfig.StartTime.UnixMilli()
 	} else {
-		return mcp.CallToolRequest{}, fmt.Errorf("invalid sleep params: %v", action.Params)
+		// Use builtin.Interface2Float64 for unified parameter handling
+		var err error
+		seconds, err = builtin.Interface2Float64(action.Params)
+		if err != nil {
+			return mcp.CallToolRequest{}, fmt.Errorf("invalid sleep params: %v", action.Params)
+		}
+		arguments["seconds"] = seconds
 	}
 
 	return BuildMCPCallToolRequest(t.Name(), arguments, action), nil
@@ -167,28 +149,13 @@ func (t *ToolSleepMS) Implement() server.ToolHandlerFunc {
 		// Sleep MS action logic
 		log.Info().Interface("milliseconds", milliseconds).Msg("sleeping in milliseconds")
 
-		var duration time.Duration
-		var actualMilliseconds int64
-		switch v := milliseconds.(type) {
-		case float64:
-			actualMilliseconds = int64(v)
-			duration = time.Duration(v) * time.Millisecond
-		case int:
-			actualMilliseconds = int64(v)
-			duration = time.Duration(v) * time.Millisecond
-		case int64:
-			actualMilliseconds = v
-			duration = time.Duration(v) * time.Millisecond
-		case string:
-			ms, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("invalid sleep duration: %v", v)
-			}
-			actualMilliseconds = ms
-			duration = time.Duration(ms) * time.Millisecond
-		default:
-			return nil, fmt.Errorf("unsupported sleep duration type: %T", v)
+		// Use Interface2Float64 for unified type conversion, then convert to int64
+		floatVal, err := builtin.Interface2Float64(milliseconds)
+		if err != nil {
+			return nil, fmt.Errorf("invalid sleep duration: %v", milliseconds)
 		}
+		actualMilliseconds := int64(floatVal)
+		duration := time.Duration(actualMilliseconds) * time.Millisecond
 
 		// Extract start_time_ms and use sleepStrict for unified sleep logic
 		startTime, err := extractStartTimeMs(request)
@@ -212,19 +179,19 @@ func (t *ToolSleepMS) ConvertActionToCallToolRequest(action option.MobileAction)
 	arguments := map[string]any{}
 
 	var milliseconds int64
-	if param, ok := action.Params.(json.Number); ok {
-		milliseconds, _ = param.Int64()
-		arguments["milliseconds"] = milliseconds
-	} else if param, ok := action.Params.(int64); ok {
-		milliseconds = param
-		arguments["milliseconds"] = milliseconds
-	} else if sleepConfig, ok := action.Params.(SleepConfig); ok {
+	if sleepConfig, ok := action.Params.(SleepConfig); ok {
 		// When startTime is provided, pass both milliseconds and startTime
 		milliseconds = sleepConfig.Milliseconds
 		arguments["milliseconds"] = milliseconds
 		arguments["start_time_ms"] = sleepConfig.StartTime.UnixMilli()
 	} else {
-		return mcp.CallToolRequest{}, fmt.Errorf("invalid sleep ms params: %v", action.Params)
+		// Use builtin.Interface2Float64 for unified parameter handling, then convert to int64
+		floatVal, err := builtin.Interface2Float64(action.Params)
+		if err != nil {
+			return mcp.CallToolRequest{}, fmt.Errorf("invalid sleep ms params: %v", action.Params)
+		}
+		milliseconds = int64(floatVal)
+		arguments["milliseconds"] = milliseconds
 	}
 
 	return BuildMCPCallToolRequest(t.Name(), arguments, action), nil
