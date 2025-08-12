@@ -31,6 +31,15 @@ func TestToolSleep_ConvertActionToCallToolRequest(t *testing.T) {
 			shouldError:  false,
 		},
 		{
+			name: "float64 parameter",
+			action: option.MobileAction{
+				Method: option.ACTION_Sleep,
+				Params: float64(5.2),
+			},
+			expectedArgs: map[string]any{"seconds": float64(5.2)},
+			shouldError:  false,
+		},
+		{
 			name: "int64 parameter",
 			action: option.MobileAction{
 				Method: option.ACTION_Sleep,
@@ -62,6 +71,24 @@ func TestToolSleep_ConvertActionToCallToolRequest(t *testing.T) {
 			},
 			expectedArgs: nil,
 			shouldError:  true,
+		},
+		{
+			name: "json.Number with integer value",
+			action: option.MobileAction{
+				Method: option.ACTION_Sleep,
+				Params: json.Number("10"),
+			},
+			expectedArgs: map[string]any{"seconds": float64(10)},
+			shouldError:  false,
+		},
+		{
+			name: "json.Number with decimal value",
+			action: option.MobileAction{
+				Method: option.ACTION_Sleep,
+				Params: json.Number("1.25"),
+			},
+			expectedArgs: map[string]any{"seconds": float64(1.25)},
+			shouldError:  false,
 		},
 	}
 
@@ -110,6 +137,15 @@ func TestToolSleepMS_ConvertActionToCallToolRequest(t *testing.T) {
 			shouldError:  false,
 		},
 		{
+			name: "float64 parameter",
+			action: option.MobileAction{
+				Method: option.ACTION_SleepMS,
+				Params: float64(2500.7),
+			},
+			expectedArgs: map[string]any{"milliseconds": int64(2500)},
+			shouldError:  false,
+		},
+		{
 			name: "SleepConfig with startTime",
 			action: option.MobileAction{
 				Method: option.ACTION_SleepMS,
@@ -123,6 +159,15 @@ func TestToolSleepMS_ConvertActionToCallToolRequest(t *testing.T) {
 				"start_time_ms": int64(1691234567890),
 			},
 			shouldError: false,
+		},
+		{
+			name: "json.Number with decimal value",
+			action: option.MobileAction{
+				Method: option.ACTION_SleepMS,
+				Params: json.Number("1234.56"),
+			},
+			expectedArgs: map[string]any{"milliseconds": int64(1234)},
+			shouldError:  false,
 		},
 		{
 			name: "invalid parameter type",
