@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/Masterminds/semver"
@@ -129,7 +128,6 @@ type IOSDevice struct {
 		listener  *forward.ConnListener
 		localPort int
 	}
-	installMutex sync.Mutex // Mutex to lock installation/uninstallation operations
 }
 
 type DeviceDetail struct {
@@ -267,10 +265,6 @@ func (dev *IOSDevice) NewDriver() (driver IDriver, err error) {
 }
 
 func (dev *IOSDevice) Install(appPath string, opts ...option.InstallOption) (err error) {
-	// Lock the device for installation
-	dev.installMutex.Lock()
-	defer dev.installMutex.Unlock()
-
 	installOpts := option.NewInstallOptions(opts...)
 	for i := 0; i <= installOpts.RetryTimes; i++ {
 		var conn *zipconduit.Connection
@@ -290,10 +284,6 @@ func (dev *IOSDevice) Install(appPath string, opts ...option.InstallOption) (err
 }
 
 func (dev *IOSDevice) Uninstall(bundleId string) error {
-	// Lock the device for uninstallation
-	dev.installMutex.Lock()
-	defer dev.installMutex.Unlock()
-
 	svc, err := installationproxy.New(dev.DeviceEntry)
 	if err != nil {
 		return err
