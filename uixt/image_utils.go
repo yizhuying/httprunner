@@ -11,9 +11,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// DetectAndRenameImageFile examines the file content to determine its image type
-// and renames the file with the appropriate extension (.jpg, .png, etc.)
-func DetectAndRenameImageFile(filePath string) (string, error) {
+// DetectAndRenameImageFile examines the file content to determine its media type
+// and renames the file with the appropriate extension (.jpg, .png, .mp4, etc.)
+func DetectAndRenameMediaFile(filePath string) (string, error) {
 	// Open the file
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -41,6 +41,7 @@ func DetectAndRenameImageFile(filePath string) (string, error) {
 	// Determine file extension based on content type
 	var extension string
 	switch {
+	// Image types
 	case strings.Contains(contentType, "image/jpeg"):
 		extension = ".jpg"
 	case strings.Contains(contentType, "image/png"):
@@ -55,12 +56,42 @@ func DetectAndRenameImageFile(filePath string) (string, error) {
 		extension = ".tiff"
 	case strings.Contains(contentType, "image/svg+xml"):
 		extension = ".svg"
+
+	// Video types
+	case strings.Contains(contentType, "video/mp4"):
+		extension = ".mp4"
+	case strings.Contains(contentType, "video/quicktime"):
+		extension = ".mov"
+	case strings.Contains(contentType, "video/x-msvideo"):
+		extension = ".avi"
+	case strings.Contains(contentType, "video/x-ms-wmv"):
+		extension = ".wmv"
+	case strings.Contains(contentType, "video/x-flv"):
+		extension = ".flv"
+	case strings.Contains(contentType, "video/webm"):
+		extension = ".webm"
+	case strings.Contains(contentType, "video/x-matroska"):
+		extension = ".mkv"
+
 	default:
-		// Default to jpg if we can't determine the type but it's still an image
+		// Check for general image or video types
 		if strings.Contains(contentType, "image/") {
-			extension = ".jpg"
+			extension = ".jpg" // Default for unknown image types
+		} else if strings.Contains(contentType, "video/") {
+			extension = ".mp4" // Default for unknown video types
 		} else {
-			return filePath, fmt.Errorf("not a recognized image type: %s", contentType)
+			// Try to determine from original file extension
+			origExt := strings.ToLower(filepath.Ext(filePath))
+			if origExt == ".mp4" || origExt == ".mov" || origExt == ".avi" ||
+				origExt == ".wmv" || origExt == ".flv" || origExt == ".webm" || origExt == ".mkv" {
+				extension = origExt
+			} else if origExt == ".jpg" || origExt == ".jpeg" || origExt == ".png" ||
+				origExt == ".gif" || origExt == ".webp" || origExt == ".bmp" ||
+				origExt == ".tiff" || origExt == ".svg" {
+				extension = origExt
+			} else {
+				return filePath, fmt.Errorf("not a recognized media type: %s", contentType)
+			}
 		}
 	}
 

@@ -133,9 +133,9 @@ func (s *MCPServer4XTDriver) registerTools() {
 	s.registerTool(&ToolGetScreenSize{})
 	s.registerTool(&ToolGetSource{})
 
-	// Image Tools
-	s.registerTool(&ToolPushImage{})
-	s.registerTool(&ToolClearImage{})
+	// Media Album Tools
+	s.registerTool(&ToolPushAlbums{})
+	s.registerTool(&ToolClearAlbums{})
 
 	// Utility Tools
 	s.registerTool(&ToolSleep{})

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/danielpaulus/go-ios/ios"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -218,135 +220,49 @@ func (t *ToolScreenRecord) ConvertActionToCallToolRequest(action option.MobileAc
 	return BuildMCPCallToolRequest(t.Name(), map[string]any{}, action), nil
 }
 
-// ToolPushImage implements the push_image tool call.
-type ToolPushImage struct {
+// ToolPushAlbums implements the push_albums tool call.
+type ToolPushAlbums struct {
 	// Return data fields - these define the structure of data returned by this tool
-	ImagePath string `json:"imagePath" desc:"Path of the image that was pushed"`
-	ImageUrl  string `json:"imageUrl,omitempty" desc:"URL of the image that was downloaded and pushed (if applicable)"`
-	Cleared   bool   `json:"cleared,omitempty" desc:"Whether images were cleared before pushing (if applicable)"`
+	FilePath string `json:"filePath" desc:"Path of the file that was pushed"`
+	FileUrl  string `json:"fileUrl,omitempty" desc:"URL of the file that was downloaded and pushed (if applicable)"`
+	FileType string `json:"fileType" desc:"Type of the file that was pushed (image or video)"`
+	Cleared  bool   `json:"cleared,omitempty" desc:"Whether albums were cleared before pushing (if applicable)"`
 }
 
-func (t *ToolPushImage) Name() option.ActionName {
-	return option.ACTION_PushImage
+func (t *ToolPushAlbums) Name() option.ActionName {
+	return option.ACTION_PushAlbums
 }
 
-func (t *ToolPushImage) Description() string {
-	return "Push an image to the device's gallery. For Android, the image will be pushed to the DCIM/Camera directory. For iOS, the image will be added to the device's photo album."
+func (t *ToolPushAlbums) Description() string {
+	return "Push a media file (image or video) to the device's gallery. For Android, this will push the file to the DCIM/Camera directory. For iOS, this will add the file to the photo album."
 }
 
-func (t *ToolPushImage) Options() []mcp.ToolOption {
+func (t *ToolPushAlbums) Options() []mcp.ToolOption {
 	return []mcp.ToolOption{
-		mcp.WithString("platform", mcp.Enum("android", "ios"), mcp.Description("The platform type of device to push image to")),
+		mcp.WithString("platform", mcp.Enum("android", "ios"), mcp.Description("The platform type of device to push media to")),
 		mcp.WithString("serial", mcp.Description("The device serial number or UDID")),
-		mcp.WithString("imagePath", mcp.Description("Path to the local image file to push to the device")),
-		mcp.WithString("imageUrl", mcp.Description("URL of the image to download and push to the device")),
+		mcp.WithString("filePath", mcp.Description("Path to the local media file to push to the device")),
+		mcp.WithString("fileUrl", mcp.Description("URL of the media file to download and push to the device")),
 		mcp.WithBoolean("cleanup", mcp.Description("Whether to delete the downloaded file after pushing it to the device")),
-		mcp.WithBoolean("clearBefore", mcp.Description("Whether to clear images before pushing (if applicable)")),
+		mcp.WithBoolean("clearBefore", mcp.Description("Whether to clear albums before pushing (if applicable)")),
 	}
 }
 
-func (t *ToolPushImage) Implement() server.ToolHandlerFunc {
-	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		driverExt, err := setupXTDriver(ctx, request.GetArguments())
-		if err != nil {
-			return nil, err
-		}
-
-		// Get image path or URL
-		imagePath, hasPath := request.GetArguments()["imagePath"].(string)
-		imageUrl, hasUrl := request.GetArguments()["imageUrl"].(string)
-		cleanup, _ := request.GetArguments()["cleanup"].(bool)
-		clearBefore, _ := request.GetArguments()["clearBefore"].(bool)
-
-		// Check if we have either path or URL
-		if (!hasPath || imagePath == "") && (!hasUrl || imageUrl == "") {
-			return nil, fmt.Errorf("either imagePath or imageUrl is required")
-		}
-
-		// If we have a URL, download it
-		downloadedFile := false
-		if hasUrl && imageUrl != "" {
-			log.Info().Str("imageUrl", imageUrl).Msg("Downloading image from URL")
-			downloadedPath, err := DownloadFileByUrl(imageUrl)
-			if err != nil {
-				return nil, fmt.Errorf("failed to download image from URL: %v", err)
-			}
-
-			// Detect image type and rename with proper extension
-			renamedPath, err := DetectAndRenameImageFile(downloadedPath)
-			if err != nil {
-				log.Warn().Err(err).Str("path", downloadedPath).Msg("Failed to detect image type or rename file, using original file")
-				imagePath = downloadedPath
-			} else {
-				imagePath = renamedPath
-			}
-			downloadedFile = true
-		}
-
-		// Clear images before pushing if requested
-		cleared := false
-		if clearBefore {
-			log.Info().Msg("Clearing images before pushing new image")
-			err := driverExt.IDriver.ClearImages()
-			if err != nil {
-				log.Warn().Err(err).Msg("Failed to clear images before pushing, continuing anyway")
-			} else {
-				cleared = true
-			}
-		}
-
-		// Push the image to the device
-		err = driverExt.IDriver.PushImage(imagePath)
-		if err != nil {
-			// If we downloaded the file and failed to push it, clean up
-			if downloadedFile && cleanup {
-				_ = os.Remove(imagePath)
-			}
-			return nil, err
-		}
-
-		// Clean up downloaded file if requested
-		if downloadedFile && cleanup {
-			log.Info().Str("imagePath", imagePath).Msg("Cleaning up downloaded image")
-			_ = os.Remove(imagePath)
-		}
-
-		message := fmt.Sprintf("Successfully pushed image to device")
-		returnData := ToolPushImage{
-			ImagePath: imagePath,
-			Cleared:   cleared,
-		}
-
-		// Include URL in response if it was used
-		if hasUrl && imageUrl != "" {
-			returnData.ImageUrl = imageUrl
-			message = fmt.Sprintf("Successfully downloaded and pushed image from %s to device", imageUrl)
-		}
-
-		// Add cleared info to message if applicable
-		if cleared {
-			message = fmt.Sprintf("%s (images cleared before pushing)", message)
-		}
-
-		return NewMCPSuccessResponse(message, &returnData), nil
-	}
-}
-
-func (t *ToolPushImage) ConvertActionToCallToolRequest(action option.MobileAction) (mcp.CallToolRequest, error) {
+func (t *ToolPushAlbums) ConvertActionToCallToolRequest(action option.MobileAction) (mcp.CallToolRequest, error) {
 	arguments := map[string]any{}
 
-	// Handle string param as imageUrl
-	if imageUrl, ok := action.Params.(string); ok && imageUrl != "" {
-		arguments["imageUrl"] = imageUrl
+	// Handle string param as fileUrl
+	if fileUrl, ok := action.Params.(string); ok && fileUrl != "" {
+		arguments["fileUrl"] = fileUrl
 	}
 
-	// Handle map params with imageUrl or imagePath
+	// Handle map params with fileUrl or filePath
 	if params, ok := action.Params.(map[string]interface{}); ok {
-		if imageUrl, ok := params["imageUrl"].(string); ok && imageUrl != "" {
-			arguments["imageUrl"] = imageUrl
+		if fileUrl, ok := params["fileUrl"].(string); ok && fileUrl != "" {
+			arguments["fileUrl"] = fileUrl
 		}
-		if imagePath, ok := params["imagePath"].(string); ok && imagePath != "" {
-			arguments["imagePath"] = imagePath
+		if filePath, ok := params["filePath"].(string); ok && filePath != "" {
+			arguments["filePath"] = filePath
 		}
 		if cleanup, ok := params["cleanup"].(bool); ok {
 			arguments["cleanup"] = cleanup
@@ -356,45 +272,127 @@ func (t *ToolPushImage) ConvertActionToCallToolRequest(action option.MobileActio
 		}
 	}
 
-	// Handle custom options
-	if imageUrl, ok := action.ActionOptions.Custom["imageUrl"].(string); ok && imageUrl != "" {
-		arguments["imageUrl"] = imageUrl
-	}
-	if imagePath, ok := action.ActionOptions.Custom["imagePath"].(string); ok && imagePath != "" {
-		arguments["imagePath"] = imagePath
-	}
-	if cleanup, ok := action.ActionOptions.Custom["cleanup"].(bool); ok {
-		arguments["cleanup"] = cleanup
-	}
-	if clearBefore, ok := action.ActionOptions.Custom["clearBefore"].(bool); ok {
-		arguments["clearBefore"] = clearBefore
-	}
-
 	return BuildMCPCallToolRequest(t.Name(), arguments, action), nil
 }
 
-// ToolClearImage implements the clear_image tool call.
-type ToolClearImage struct {
+func (t *ToolPushAlbums) Implement() server.ToolHandlerFunc {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		driverExt, err := setupXTDriver(ctx, request.GetArguments())
+		if err != nil {
+			return nil, err
+		}
+
+		// Get file path or URL
+		filePath, hasPath := request.GetArguments()["filePath"].(string)
+		fileUrl, hasUrl := request.GetArguments()["fileUrl"].(string)
+		cleanup, _ := request.GetArguments()["cleanup"].(bool)
+		clearBefore, _ := request.GetArguments()["clearBefore"].(bool)
+
+		// Check if we have either path or URL
+		if (!hasPath || filePath == "") && (!hasUrl || fileUrl == "") {
+			return nil, fmt.Errorf("either filePath or fileUrl is required")
+		}
+
+		// If we have a URL, download it
+		downloadedFile := false
+		fileType := "image" // Default file type
+		if hasUrl && fileUrl != "" {
+			log.Info().Str("fileUrl", fileUrl).Msg("Downloading media file from URL")
+			downloadedPath, err := DownloadFileByUrl(fileUrl)
+			if err != nil {
+				return nil, fmt.Errorf("failed to download media file from URL: %v", err)
+			}
+
+			// Detect file type and rename with proper extension
+			renamedPath, err := DetectAndRenameMediaFile(downloadedPath)
+			if err != nil {
+				log.Warn().Err(err).Str("path", downloadedPath).Msg("Failed to detect file type or rename file, using original file")
+				filePath = downloadedPath
+			} else {
+				filePath = renamedPath
+				// Determine if it's a video based on extension
+				ext := strings.ToLower(filepath.Ext(renamedPath))
+				if ext == ".mp4" || ext == ".mov" || ext == ".avi" || ext == ".wmv" || ext == ".flv" || ext == ".webm" || ext == ".mkv" {
+					fileType = "video"
+				}
+			}
+			downloadedFile = true
+		}
+
+		// Clear albums before pushing if requested
+		cleared := false
+		if clearBefore {
+			log.Info().Msg("Clearing albums before pushing new media file")
+			err := driverExt.IDriver.ClearImages()
+			if err != nil {
+				log.Warn().Err(err).Msg("Failed to clear albums before pushing, continuing anyway")
+			} else {
+				cleared = true
+			}
+		}
+
+		// Push the file to the device
+		err = driverExt.IDriver.PushImage(filePath)
+		if err != nil {
+			// If we downloaded the file and failed to push it, clean up
+			if downloadedFile && cleanup {
+				_ = os.Remove(filePath)
+			}
+			return nil, err
+		}
+
+		// Clean up downloaded file if requested
+		if downloadedFile && cleanup {
+			log.Info().Str("filePath", filePath).Msg("Cleaning up downloaded media file")
+			_ = os.Remove(filePath)
+		}
+
+		message := fmt.Sprintf("Successfully pushed %s to device", fileType)
+		returnData := ToolPushAlbums{
+			FilePath: filePath,
+			FileType: fileType,
+			Cleared:  cleared,
+		}
+
+		// Include URL in response if it was used
+		if hasUrl && fileUrl != "" {
+			returnData.FileUrl = fileUrl
+			message = fmt.Sprintf("Successfully downloaded and pushed %s from %s to device", fileType, fileUrl)
+		}
+
+		// Add cleared info to message if applicable
+		if cleared {
+			message = fmt.Sprintf("%s (albums cleared before pushing)", message)
+		}
+
+		return NewMCPSuccessResponse(message, &returnData), nil
+	}
+}
+
+// Old ToolPushImage implementation has been removed as part of the refactoring to ToolPushAlbums
+
+// ToolClearAlbums implements the clear_albums tool call.
+type ToolClearAlbums struct {
 	// Return data fields - these define the structure of data returned by this tool
-	Success bool `json:"success" desc:"Whether the operation was successful"`
+	Cleared bool `json:"cleared" desc:"Whether albums were cleared successfully"`
 }
 
-func (t *ToolClearImage) Name() option.ActionName {
-	return option.ACTION_ClearImage
+func (t *ToolClearAlbums) Name() option.ActionName {
+	return option.ACTION_ClearAlbums
 }
 
-func (t *ToolClearImage) Description() string {
-	return "Clear images from the device's gallery. For Android, this will remove all images from the DCIM/Camera directory. For iOS, this will clear the images added through the push_image tool."
+func (t *ToolClearAlbums) Description() string {
+	return "Clear media files (images and videos) from the device's gallery. For Android, this will clear media from the DCIM/Camera directory. For iOS, this will clear media from the device's photo album."
 }
 
-func (t *ToolClearImage) Options() []mcp.ToolOption {
+func (t *ToolClearAlbums) Options() []mcp.ToolOption {
 	return []mcp.ToolOption{
-		mcp.WithString("platform", mcp.Enum("android", "ios"), mcp.Description("The platform type of device to clear images from")),
+		mcp.WithString("platform", mcp.Enum("android", "ios"), mcp.Description("The platform type of device to clear media from")),
 		mcp.WithString("serial", mcp.Description("The device serial number or UDID")),
 	}
 }
 
-func (t *ToolClearImage) Implement() server.ToolHandlerFunc {
+func (t *ToolClearAlbums) Implement() server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		driverExt, err := setupXTDriver(ctx, request.GetArguments())
 		if err != nil {
@@ -406,13 +404,13 @@ func (t *ToolClearImage) Implement() server.ToolHandlerFunc {
 			return nil, err
 		}
 
-		message := "Successfully cleared images from device"
-		returnData := ToolClearImage{Success: true}
+		message := "Successfully cleared media files from device"
+		returnData := ToolClearAlbums{Cleared: true}
 
 		return NewMCPSuccessResponse(message, &returnData), nil
 	}
 }
 
-func (t *ToolClearImage) ConvertActionToCallToolRequest(action option.MobileAction) (mcp.CallToolRequest, error) {
+func (t *ToolClearAlbums) ConvertActionToCallToolRequest(action option.MobileAction) (mcp.CallToolRequest, error) {
 	return BuildMCPCallToolRequest(t.Name(), map[string]any{}, action), nil
 }
