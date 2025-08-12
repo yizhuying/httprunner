@@ -265,8 +265,10 @@ func (s *DriverSession) Request(method string, urlStr string, rawBody []byte, op
 			logger = log.Debug().Bool("success", true)
 		}
 
-		logger = logger.Str("logid", logid).Str("request_method", method).Str("request_url", rawURL).
-			Str("request_body", string(rawBody))
+		logger = logger.Str("logid", logid).Str("request_method", method).Str("request_url", rawURL)
+		if len(rawBody) < 1024 {
+			logger = logger.Str("request_body", string(rawBody))
+		}
 		if !driverResult.RequestTime.IsZero() {
 			logger = logger.Int64("request_time", driverResult.RequestTime.UnixMilli())
 		}
