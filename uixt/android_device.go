@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/httprunner/funplugin/myexec"
@@ -94,8 +95,9 @@ func NewAndroidDevice(opts ...option.AndroidDeviceOption) (device *AndroidDevice
 
 type AndroidDevice struct {
 	*gadb.Device
-	Options *option.AndroidDeviceOptions
-	Logcat  *AdbLogcat
+	Options      *option.AndroidDeviceOptions
+	Logcat       *AdbLogcat
+	installMutex sync.Mutex // Mutex to lock installation/uninstallation operations
 }
 
 func (dev *AndroidDevice) Setup() error {
@@ -154,6 +156,10 @@ func (dev *AndroidDevice) NewDriver() (driver IDriver, err error) {
 }
 
 func (dev *AndroidDevice) Install(apkPath string, opts ...option.InstallOption) error {
+	// Lock the device for installation
+	dev.installMutex.Lock()
+	defer dev.installMutex.Unlock()
+
 	installOpts := option.NewInstallOptions(opts...)
 	brand, err := dev.Device.Brand()
 	if err != nil {
@@ -261,6 +267,10 @@ func (dev *AndroidDevice) installCommon(apkPath string, args ...string) error {
 }
 
 func (dev *AndroidDevice) Uninstall(packageName string) error {
+	// Lock the device for uninstallation
+	dev.installMutex.Lock()
+	defer dev.installMutex.Unlock()
+
 	_, err := dev.Device.Uninstall(packageName)
 	return err
 }
