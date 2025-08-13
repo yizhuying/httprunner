@@ -301,7 +301,7 @@ func extractActionOptionsToArguments(actionOptions []option.ActionOption, argume
 
 	// Add tap/swipe offset options
 	if len(tempOptions.TapOffset) == 2 {
-		arguments["tap_offset"] = tempOptions.TapOffset
+		arguments["offset"] = tempOptions.TapOffset
 	}
 	if len(tempOptions.SwipeOffset) == 4 {
 		arguments["swipe_offset"] = tempOptions.SwipeOffset

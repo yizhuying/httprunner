@@ -126,3 +126,7 @@ The framework supports both Go and Python plugins:
 - Static linking for deployment
 - Version info embedded via ldflags
 - Cross-platform builds supported
+
+### Code Standards
+- All code comments must be written in English
+- All documentation must be written in Chinese
