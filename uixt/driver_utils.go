@@ -349,32 +349,32 @@ func DownloadFileByUrl(fileUrl string) (filePath string, err error) {
 	// Build the HTTP GET request.
 	req, err := http.NewRequest("GET", fileUrl, nil)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(code.NetworkError, err.Error())
 	}
 
 	// Perform the request.
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(code.NetworkError, err.Error())
 	}
 	defer resp.Body.Close()
 
 	// Check the HTTP status code.
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to download file: %s", resp.Status)
+		return "", errors.Wrap(code.NetworkError, fmt.Errorf("failed to download file: %s", resp.Status).Error())
 	}
 
 	// Create the output file.
 	outFile, err := os.Create(filePath)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(code.MobileUIDriverError, err.Error())
 	}
 	defer outFile.Close()
 
 	// Copy the response body to the file.
 	_, err = io.Copy(outFile, resp.Body)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(code.NetworkError, err.Error())
 	}
 
 	log.Info().Str("filePath", filePath).Msg("download file success")
