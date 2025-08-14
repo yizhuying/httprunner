@@ -1851,3 +1851,149 @@ func TestNewMCPErrorResponse(t *testing.T) {
 	result := NewMCPErrorResponse("Test error message")
 	assert.NotNil(t, result)
 }
+
+// TestParseActionOptions tests core functionality of parseActionOptions function
+func TestParseActionOptions(t *testing.T) {
+	testCases := []struct {
+		name      string
+		arguments map[string]any
+		expectErr bool
+		validate  func(t *testing.T, opts *option.ActionOptions)
+	}{
+		{
+			name:      "empty_arguments",
+			arguments: map[string]any{},
+			expectErr: false,
+			validate: func(t *testing.T, opts *option.ActionOptions) {
+				assert.Equal(t, "", opts.Platform)
+				assert.Equal(t, "", opts.Serial)
+				assert.Equal(t, 0.0, opts.X)
+				assert.Equal(t, 0.0, opts.Y)
+			},
+		},
+		{
+			name: "basic_fields",
+			arguments: map[string]any{
+				"platform": "android",
+				"serial":   "device123",
+				"x":        100.5,
+				"y":        200.7,
+				"text":     "Hello World",
+			},
+			expectErr: false,
+			validate: func(t *testing.T, opts *option.ActionOptions) {
+				assert.Equal(t, "android", opts.Platform)
+				assert.Equal(t, "device123", opts.Serial)
+				assert.Equal(t, 100.5, opts.X)
+				assert.Equal(t, 200.7, opts.Y)
+				assert.Equal(t, "Hello World", opts.Text)
+			},
+		},
+		{
+			name: "complete_nested_fields",
+			arguments: map[string]any{
+				"platform":                        "ios",
+				"serial":                          "ios_device",
+				"screenshot_with_ocr":             true,
+				"screenshot_with_upload":          true,
+				"screenshot_with_live_type":       true,
+				"screenshot_with_live_popularity": true,
+				"screenshot_with_base64":          true,
+				"screenshot_with_ui_types":        []string{"button", "input", "text"},
+				"screenshot_with_close_popups":    true,
+				"screenshot_with_ocr_cluster":     "test_cluster",
+				"screenshot_file_name":            "test.png",
+				"screenrecord_duration":           30.5,
+				"screenrecord_with_audio":         true,
+				"screenrecord_with_scrcpy":        true,
+				"screenrecord_path":               "/tmp/record.mp4",
+				"scope":                           []float64{0.1, 0.2, 0.9, 0.8},
+				"abs_scope":                       []int{100, 200, 900, 800},
+				"regex":                           true,
+				"offset":                          []int{5, 10},
+				"tap_random_rect":                 true,
+				"swipe_offset":                    []int{1, 2, 3, 4},
+				"offset_random_range":             []int{-5, 5},
+				"index":                           2,
+				"match_one":                       true,
+				"ignore_NotFoundError":            true,
+				"pre_mark_operation":              true,
+				"post_mark_operation":             false,
+				"max_retry_times":                 5,
+				"timeout":                         30,
+				"custom": map[string]any{
+					"test_key":    "test_value",
+					"nested_data": map[string]any{"key": "value"},
+				},
+			},
+			expectErr: false,
+			validate: func(t *testing.T, opts *option.ActionOptions) {
+				assert.Equal(t, "ios", opts.Platform)
+				assert.Equal(t, "ios_device", opts.Serial)
+				assert.True(t, opts.ScreenOptions.ScreenShotOptions.ScreenShotWithOCR)
+				assert.True(t, opts.ScreenOptions.ScreenShotOptions.ScreenShotWithUpload)
+				assert.True(t, opts.ScreenOptions.ScreenShotOptions.ScreenShotWithLiveType)
+				assert.True(t, opts.ScreenOptions.ScreenShotOptions.ScreenShotWithLivePopularity)
+				assert.True(t, opts.ScreenOptions.ScreenShotOptions.ScreenShotWithBase64)
+				assert.Equal(t, []string{"button", "input", "text"}, opts.ScreenOptions.ScreenShotOptions.ScreenShotWithUITypes)
+				assert.True(t, opts.ScreenOptions.ScreenShotOptions.ScreenShotWithClosePopups)
+				assert.Equal(t, "test_cluster", opts.ScreenOptions.ScreenShotOptions.ScreenShotWithOCRCluster)
+				assert.Equal(t, "test.png", opts.ScreenOptions.ScreenShotOptions.ScreenShotFileName)
+				assert.Equal(t, 30.5, opts.ScreenOptions.ScreenRecordOptions.ScreenRecordDuration)
+				assert.True(t, opts.ScreenOptions.ScreenRecordOptions.ScreenRecordWithAudio)
+				assert.True(t, opts.ScreenOptions.ScreenRecordOptions.ScreenRecordWithScrcpy)
+				assert.Equal(t, "/tmp/record.mp4", opts.ScreenOptions.ScreenRecordOptions.ScreenRecordPath)
+				assert.Equal(t, []float64{0.1, 0.2, 0.9, 0.8}, []float64(opts.ScreenOptions.ScreenFilterOptions.Scope))
+				assert.Equal(t, []int{100, 200, 900, 800}, []int(opts.ScreenOptions.ScreenFilterOptions.AbsScope))
+				assert.True(t, opts.ScreenOptions.ScreenFilterOptions.Regex)
+				assert.Equal(t, []int{5, 10}, opts.ScreenOptions.ScreenFilterOptions.TapOffset)
+				assert.True(t, opts.ScreenOptions.ScreenFilterOptions.TapRandomRect)
+				assert.Equal(t, []int{1, 2, 3, 4}, opts.ScreenOptions.ScreenFilterOptions.SwipeOffset)
+				assert.Equal(t, []int{-5, 5}, opts.ScreenOptions.ScreenFilterOptions.OffsetRandomRange)
+				assert.Equal(t, 2, opts.ScreenOptions.ScreenFilterOptions.Index)
+				assert.True(t, opts.ScreenOptions.ScreenFilterOptions.MatchOne)
+				assert.True(t, opts.ScreenOptions.ScreenFilterOptions.IgnoreNotFoundError)
+				assert.True(t, opts.ScreenOptions.MarkOperationOptions.PreMarkOperation)
+				assert.False(t, opts.ScreenOptions.MarkOperationOptions.PostMarkOperation)
+				assert.Equal(t, 5, opts.MaxRetryTimes)
+				assert.Equal(t, 30, opts.Timeout)
+				assert.Equal(t, "test_value", opts.Custom["test_key"])
+				nestedData, ok := opts.Custom["nested_data"].(map[string]any)
+				require.True(t, ok)
+				assert.Equal(t, "value", nestedData["key"])
+			},
+		},
+		{
+			name: "error_case_non_serializable",
+			arguments: map[string]any{
+				"platform": "android",
+				"invalid":  make(chan int),
+			},
+			expectErr: true,
+		},
+		{
+			name: "error_case_invalid_type",
+			arguments: map[string]any{
+				"x": "not_a_number",
+			},
+			expectErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := parseActionOptions(tc.arguments)
+
+			if tc.expectErr {
+				assert.Error(t, err)
+				assert.Nil(t, result)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				if tc.validate != nil {
+					tc.validate(t, result)
+				}
+			}
+		})
+	}
+}
