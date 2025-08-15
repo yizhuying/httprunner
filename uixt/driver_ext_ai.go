@@ -251,6 +251,7 @@ func (dExt *XTDriver) AIAssert(assertion string, opts ...option.ActionOption) (*
 	screenResult, err := dExt.GetScreenResult(
 		option.WithScreenShotFileName("ai_assert"),
 		option.WithScreenShotBase64(true),
+		option.WithScreenShotUpload(true),
 	)
 	if err != nil {
 		return nil, err
@@ -267,7 +268,7 @@ func (dExt *XTDriver) AIAssert(assertion string, opts ...option.ActionOption) (*
 	modelCallStartTime := time.Now()
 	assertOpts := &ai.AssertOptions{
 		Assertion:  assertion,
-		Screenshot: screenResult.Base64,
+		Screenshot: screenResult.UploadedURL,
 		Size:       screenResult.Resolution,
 	}
 	result, err := dExt.LLMService.Assert(context.Background(), assertOpts)
@@ -302,6 +303,7 @@ func (dExt *XTDriver) PlanNextAction(ctx context.Context, prompt string, opts ..
 	screenResult, err := dExt.GetScreenResult(
 		option.WithScreenShotFileName("ai_planning"),
 		option.WithScreenShotBase64(true),
+		option.WithScreenShotUpload(true),
 	)
 	if err != nil {
 		return nil, err
@@ -321,7 +323,7 @@ func (dExt *XTDriver) PlanNextAction(ctx context.Context, prompt string, opts ..
 				{
 					Type: schema.ChatMessagePartTypeImageURL,
 					ImageURL: &schema.ChatMessageImageURL{
-						URL: screenResult.Base64,
+						URL: screenResult.UploadedURL,
 					},
 				},
 			},

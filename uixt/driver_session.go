@@ -41,7 +41,7 @@ type DriverRequests struct {
 }
 
 func NewDriverSession() *DriverSession {
-	timeout := 30 * time.Second
+	timeout := 120 * time.Second
 	session := &DriverSession{
 		ctx:     context.Background(),
 		ID:      "<SessionNotInit>",
@@ -202,8 +202,13 @@ func (s *DriverSession) RequestWithRetry(method string, urlStr string, rawBody [
 			synthesizeEventRetryAdded = true
 		}
 
-		// Notice: use DeviceHTTPDriverError when request driver failed
-		lastError = errors.Wrap(code.DeviceHTTPDriverError, err.Error())
+		// Check if it's already a DeviceOfflineError
+		if errors.Is(err, code.DeviceOfflineError) {
+			lastError = err
+		} else {
+			// Use DeviceHTTPDriverError for other errors
+			lastError = errors.Wrap(code.DeviceHTTPDriverError, err.Error())
+		}
 
 		// If this was the last attempt, break
 		if attempt == maxRetry {
@@ -296,6 +301,11 @@ func (s *DriverSession) Request(method string, urlStr string, rawBody []byte, op
 	driverResult.RequestTime = time.Now()
 	var resp *http.Response
 	if resp, err = s.client.Do(req); err != nil {
+		// Check for connection reset or EOF errors and classify as DeviceOfflineError
+		if strings.Contains(err.Error(), "read: connection reset by peer") ||
+			strings.Contains(err.Error(), "EOF") {
+			return nil, errors.Wrap(code.DeviceOfflineError, err.Error())
+		}
 		return nil, err
 	}
 	defer func() {
