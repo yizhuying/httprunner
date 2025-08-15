@@ -472,7 +472,10 @@ func (w *WingsService) callWingsAPI(ctx context.Context, request WingsActionRequ
 	defer resp.Body.Close()
 
 	logID := resp.Header.Get("X-Tt-Logid")
-	log.Info().Str("step_text", request.StepText).Str("image_url", request.DeviceInfos[0].NowImageUrl).Str("log_id", logID).Str("biz_id", request.BizId).Str("url", w.apiURL).Msg("call wings api")
+	log.Info().Str("step_text", request.StepText).
+		Str("image_url", request.DeviceInfos[0].NowImageUrl).
+		Str("log_id", logID).Str("biz_id", request.BizId).
+		Str("url", w.apiURL).Msg("call wings api")
 
 	// Read response body
 	responseBody, err := io.ReadAll(resp.Body)
