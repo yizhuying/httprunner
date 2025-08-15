@@ -298,13 +298,14 @@ func (dExt *XTDriver) PlanNextAction(ctx context.Context, prompt string, opts ..
 	// Parse action options to get ResetHistory setting
 	options := option.NewActionOptions(opts...)
 	resetHistory := options.ResetHistory
+	actionOptions := option.NewActionOptions(opts...)
+	screenOptions := []option.ActionOption{option.WithScreenShotFileName("ai_action"), option.WithScreenShotBase64(true)}
+	if actionOptions.ScreenShotWithUpload {
+		screenOptions = append(screenOptions, option.WithScreenShotUpload(true))
+	}
 
 	// Step 1: Take screenshot and convert to base64
-	screenResult, err := dExt.GetScreenResult(
-		option.WithScreenShotFileName("ai_planning"),
-		option.WithScreenShotBase64(true),
-		option.WithScreenShotUpload(true),
-	)
+	screenResult, err := dExt.GetScreenResult(screenOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -315,6 +316,12 @@ func (dExt *XTDriver) PlanNextAction(ctx context.Context, prompt string, opts ..
 
 	// Step 2: Call model
 	modelCallStartTime := time.Now()
+	var imageURL string
+	if screenResult.UploadedURL != "" {
+		imageURL = screenResult.UploadedURL
+	} else {
+		imageURL = screenResult.ImagePath
+	}
 	planningOpts := &ai.PlanningOptions{
 		UserInstruction: prompt,
 		Message: &schema.Message{
@@ -323,7 +330,7 @@ func (dExt *XTDriver) PlanNextAction(ctx context.Context, prompt string, opts ..
 				{
 					Type: schema.ChatMessagePartTypeImageURL,
 					ImageURL: &schema.ChatMessageImageURL{
-						URL: screenResult.UploadedURL,
+						URL: imageURL,
 					},
 				},
 			},
