@@ -73,7 +73,7 @@ func (w *WingsService) Plan(ctx context.Context, opts *PlanningOptions) (*Planni
 	}
 
 	// Get device info from context (if available)
-	deviceInfo := w.getDeviceInfoFromContext(ctx, screenshot)
+	deviceInfo := w.getDeviceInfoFromScreenshot(ctx, screenshot)
 
 	// Prepare Wings API request
 	apiRequest := WingsActionRequest{
@@ -391,12 +391,17 @@ func (w *WingsService) extractScreenshotFromMessage(message *schema.Message) (st
 	return "", errors.New("no image found in message")
 }
 
-// getDeviceInfoFromContext gets device info from context with fallback
-func (w *WingsService) getDeviceInfoFromContext(_ context.Context, screenshot string) []WingsDeviceInfo {
+// getDeviceInfoFromBase gets device info from base64 screenshot
+func (w *WingsService) getDeviceInfoFromBase64(screenshotBase64 string) []WingsDeviceInfo {
 	// TODO: Extract device info from context if available
 
 	// Use last history's NowImage as PreImage if history exists
-	preImageUrl := screenshot
+	preImage := screenshotBase64
+	if len(w.history) > 0 && w.history[len(w.history)-1].DeviceInfos != nil && len(*w.history[len(w.history)-1].DeviceInfos) > 0 {
+		preImage = (*w.history[len(w.history)-1].DeviceInfos)[0].NowImage
+	}
+
+	preImageUrl := ""
 	if len(w.history) > 0 && w.history[len(w.history)-1].DeviceInfos != nil && len(*w.history[len(w.history)-1].DeviceInfos) > 0 {
 		preImageUrl = (*w.history[len(w.history)-1].DeviceInfos)[0].NowImageUrl
 	}
@@ -405,7 +410,38 @@ func (w *WingsService) getDeviceInfoFromContext(_ context.Context, screenshot st
 	return []WingsDeviceInfo{
 		{
 			DeviceID:        "default-device",
-			NowImageUrl:     screenshot,
+			NowImage:        screenshotBase64,
+			NowImageUrl:     "",
+			PreImage:        preImage,
+			PreImageUrl:     preImageUrl,
+			NowLayoutJSON:   "",
+			OperationSystem: "android",
+		},
+	}
+}
+
+// getDeviceInfoFromUrl gets device info from url screenshot
+func (w *WingsService) getDeviceInfoFromUrl(screenshotUrl string) []WingsDeviceInfo {
+	// TODO: Extract device info from context if available
+
+	// Use last history's NowImage as PreImage if history exists
+	preImage := ""
+	if len(w.history) > 0 && w.history[len(w.history)-1].DeviceInfos != nil && len(*w.history[len(w.history)-1].DeviceInfos) > 0 {
+		preImage = (*w.history[len(w.history)-1].DeviceInfos)[0].NowImage
+	}
+
+	preImageUrl := screenshotUrl
+	if len(w.history) > 0 && w.history[len(w.history)-1].DeviceInfos != nil && len(*w.history[len(w.history)-1].DeviceInfos) > 0 {
+		preImageUrl = (*w.history[len(w.history)-1].DeviceInfos)[0].NowImageUrl
+	}
+
+	// use default device info with optimized PreImage
+	return []WingsDeviceInfo{
+		{
+			DeviceID:        "default-device",
+			NowImage:        "",
+			NowImageUrl:     screenshotUrl,
+			PreImage:        preImage,
 			PreImageUrl:     preImageUrl,
 			NowLayoutJSON:   "",
 			OperationSystem: "android",
@@ -415,7 +451,14 @@ func (w *WingsService) getDeviceInfoFromContext(_ context.Context, screenshot st
 
 // getDeviceInfoFromScreenshot gets device info from screenshot (for Assert)
 func (w *WingsService) getDeviceInfoFromScreenshot(ctx context.Context, screenshot string) []WingsDeviceInfo {
-	return w.getDeviceInfoFromContext(ctx, screenshot)
+	if strings.HasPrefix(screenshot, "data:image/") {
+		// Remove data URL prefix like "data:image/jpeg;base64,"
+		parts := strings.Split(screenshot, ",")
+		if len(parts) == 2 {
+			return w.getDeviceInfoFromBase64(parts[1])
+		}
+	}
+	return w.getDeviceInfoFromUrl(screenshot)
 }
 
 // cleanScreenshotDataURL removes data URL prefix from screenshot string
