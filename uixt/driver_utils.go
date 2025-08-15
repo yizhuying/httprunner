@@ -284,8 +284,9 @@ func getSimulationDuration(params []float64) (milliseconds int64) {
 	return 0
 }
 
-// sleepStrict sleeps strict duration with given params
-// startTime is used to correct sleep duration caused by process time
+// sleepStrict sleeps for strict duration with optional start time correction
+// If startTime is zero, acts as normal context-aware sleep
+// If startTime is provided, corrects sleep duration by subtracting elapsed time
 // ctx allows for cancellation during sleep
 func sleepStrict(ctx context.Context, startTime time.Time, strictMilliseconds int64) {
 	var elapsed int64

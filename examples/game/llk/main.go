@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/rs/zerolog/log"
+
 	hrp "github.com/httprunner/httprunner/v5"
 	"github.com/httprunner/httprunner/v5/code"
 	"github.com/httprunner/httprunner/v5/internal/builtin"
 	"github.com/httprunner/httprunner/v5/internal/config"
 	"github.com/httprunner/httprunner/v5/uixt"
 	"github.com/httprunner/httprunner/v5/uixt/option"
-	"github.com/rs/zerolog/log"
 )
 
 // GameElement represents a game element detected in the interface
@@ -34,6 +35,15 @@ type Dimensions struct {
 type Element struct {
 	Type     string   `json:"type"`     // Element type/name
 	Position Position `json:"position"` // Position in grid
+	BoundBox BoundBox `json:"boundBox"` // Bounding box coordinates
+}
+
+// BoundBox represents bounding box coordinates
+type BoundBox struct {
+	X      float64 `json:"x"`      // X coordinate
+	Y      float64 `json:"y"`      // Y coordinate
+	Width  float64 `json:"width"`  // Box width
+	Height float64 `json:"height"` // Box height
 }
 
 // Position represents grid position

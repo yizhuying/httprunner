@@ -482,9 +482,10 @@ func (w *WingsService) callWingsAPI(ctx context.Context, request WingsActionRequ
 		return nil, errors.Wrap(err, "HTTP request failed")
 	}
 	defer resp.Body.Close()
-	// resp X-Tt-Logid
+
 	logID := resp.Header.Get("X-Tt-Logid")
 	log.Info().Str("step_text", request.StepText).Str("log_id", logID).Str("biz_id", request.BizId).Str("url", w.apiURL).Msg("call wings api")
+
 	// Read response body
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {

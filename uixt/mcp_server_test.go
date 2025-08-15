@@ -169,27 +169,106 @@ func TestIgnoreNotFoundErrorOption(t *testing.T) {
 func TestExtractActionOptionsToArguments(t *testing.T) {
 	// Test the extractActionOptionsToArguments helper function
 	actionOptions := []option.ActionOption{
+		// Boolean options
 		option.WithIgnoreNotFoundError(true),
-		option.WithMaxRetryTimes(3),
-		option.WithIndex(2),
 		option.WithRegex(true),
 		option.WithTapRandomRect(false), // false should not be included
-		option.WithDuration(1.5),
+		option.WithAntiRisk(true),
+		option.WithPreMarkOperation(true),
+		option.WithResetHistory(true),
+		option.WithMatchOne(true),
+
+		// Numeric options
+		option.WithMaxRetryTimes(3),
+		option.WithIndex(2),
+		option.WithInterval(1.5),
+		option.WithSteps(10),
+		option.WithTimeout(30),
+		option.WithFrequency(5),
+		option.WithDuration(2.0),
+		option.WithPressDuration(1.5),
+
+		// Offset options (including the fixed offset field)
+		option.WithTapOffset(-300, 0),
+		option.WithSwipeOffset(1, 2, 3, 4),
+		option.WithOffsetRandomRange(-5, 5),
+
+		// Scope options
+		option.WithScope(0.1, 0.2, 0.9, 0.8),
+		option.WithAbsScope(100, 200, 900, 800),
+
+		// Screenshot options
+		option.WithScreenShotOCR(true),
+		option.WithScreenShotUpload(true),
+		option.WithScreenShotLiveType(true),
+		option.WithScreenShotLivePopularity(true),
+		option.WithScreenShotClosePopups(true),
+		option.WithScreenOCRCluster("test_cluster"),
+		option.WithScreenShotFileName("test.png"),
+		option.WithScreenShotUITypes("button", "input"),
+
+		// Direction option
+		option.WithDirection("up"),
+
+		// Identifier
+		option.WithIdentifier("test_id"),
 	}
 
 	arguments := make(map[string]any)
 	extractActionOptionsToArguments(actionOptions, arguments)
 
-	// Verify extracted options
+	// Verify boolean options (only true values should be included)
 	assert.Equal(t, true, arguments["ignore_NotFoundError"], "ignore_NotFoundError should be extracted")
-	assert.Equal(t, 3, arguments["max_retry_times"], "max_retry_times should be extracted")
-	assert.Equal(t, 2, arguments["index"], "index should be extracted")
 	assert.Equal(t, true, arguments["regex"], "regex should be extracted")
-	assert.Equal(t, 1.5, arguments["duration"], "duration should be extracted")
+	assert.Equal(t, true, arguments["anti_risk"], "anti_risk should be extracted")
+	assert.Equal(t, true, arguments["pre_mark_operation"], "pre_mark_operation should be extracted")
+	assert.Equal(t, true, arguments["reset_history"], "reset_history should be extracted")
+	assert.Equal(t, true, arguments["match_one"], "match_one should be extracted")
 
 	// tap_random_rect should not be included since it's false
 	_, exists := arguments["tap_random_rect"]
 	assert.False(t, exists, "tap_random_rect should not be included when false")
+
+	// Verify numeric options
+	assert.Equal(t, 3, arguments["max_retry_times"], "max_retry_times should be extracted")
+	assert.Equal(t, 2, arguments["index"], "index should be extracted")
+	assert.Equal(t, 1.5, arguments["interval"], "interval should be extracted")
+	assert.Equal(t, 10, arguments["steps"], "steps should be extracted")
+	assert.Equal(t, 30, arguments["timeout"], "timeout should be extracted")
+	assert.Equal(t, 5, arguments["frequency"], "frequency should be extracted")
+	assert.Equal(t, 2.0, arguments["duration"], "duration should be extracted")
+	assert.Equal(t, 1.5, arguments["press_duration"], "press_duration should be extracted")
+
+	// Verify offset options (including the critical 'offset' field that was fixed)
+	assert.Equal(t, []int{-300, 0}, arguments["offset"], "offset should be extracted (not tap_offset)")
+	assert.Equal(t, []int{1, 2, 3, 4}, arguments["swipe_offset"], "swipe_offset should be extracted")
+	assert.Equal(t, []int{-5, 5}, arguments["offset_random_range"], "offset_random_range should be extracted")
+
+	// Verify scope options (these are custom types, not raw slices)
+	assert.Equal(t, option.Scope([]float64{0.1, 0.2, 0.9, 0.8}), arguments["scope"], "scope should be extracted")
+	assert.Equal(t, option.AbsScope([]int{100, 200, 900, 800}), arguments["abs_scope"], "abs_scope should be extracted")
+
+	// Verify screenshot options
+	assert.Equal(t, true, arguments["screenshot_with_ocr"], "screenshot_with_ocr should be extracted")
+	assert.Equal(t, true, arguments["screenshot_with_upload"], "screenshot_with_upload should be extracted")
+	assert.Equal(t, true, arguments["screenshot_with_live_type"], "screenshot_with_live_type should be extracted")
+	assert.Equal(t, true, arguments["screenshot_with_live_popularity"], "screenshot_with_live_popularity should be extracted")
+	assert.Equal(t, true, arguments["screenshot_with_close_popups"], "screenshot_with_close_popups should be extracted")
+	assert.Equal(t, "test_cluster", arguments["screenshot_with_ocr_cluster"], "screenshot_with_ocr_cluster should be extracted")
+	assert.Equal(t, "test.png", arguments["screenshot_file_name"], "screenshot_file_name should be extracted")
+	assert.Equal(t, []string{"button", "input"}, arguments["screenshot_with_ui_types"], "screenshot_with_ui_types should be extracted")
+
+	// Verify identifier and direction (only fields that exist)
+	assert.Equal(t, "test_id", arguments["identifier"], "identifier should be extracted")
+	assert.Equal(t, "up", arguments["direction"], "direction should be extracted")
+
+	// Verify the critical fix: ensure "offset" is used instead of "tap_offset"
+	_, hasTapOffset := arguments["tap_offset"]
+	assert.False(t, hasTapOffset, "Should NOT contain 'tap_offset' field")
+	_, hasOffset := arguments["offset"]
+	assert.True(t, hasOffset, "Should contain 'offset' field")
+
+	t.Logf("Extracted %d arguments from ActionOptions", len(arguments))
 }
 
 // TestToolListAvailableDevices tests the ToolListAvailableDevices implementation

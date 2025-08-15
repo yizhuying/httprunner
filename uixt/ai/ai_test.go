@@ -1,35 +1,19 @@
+//go:build localtest
+
 package ai
 
 import (
 	"context"
-	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/httprunner/httprunner/v5/internal/builtin"
 	"github.com/httprunner/httprunner/v5/uixt/option"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-// hasRequiredEnvVars checks if the required environment variables are set for testing
-func hasRequiredEnvVars() bool {
-	// Check for OpenAI environment variables
-	if os.Getenv("OPENAI_BASE_URL") != "" && os.Getenv("OPENAI_API_KEY") != "" {
-		return true
-	}
-	// Check for GPT-4O specific environment variables
-	if os.Getenv("OPENAI_GPT_4O_BASE_URL") != "" && os.Getenv("OPENAI_GPT_4O_API_KEY") != "" {
-		return true
-	}
-	return false
-}
-
 func TestILLMServiceQuery(t *testing.T) {
-	// Skip test if required environment variables are not set
-	if !hasRequiredEnvVars() {
-		t.Skip("Skipping test: required environment variables not set")
-	}
-
 	// Create LLM service
 	service, err := NewLLMService(option.OPENAI_GPT_4O)
 	require.NoError(t, err)
@@ -96,11 +80,6 @@ func TestILLMServiceQuery(t *testing.T) {
 }
 
 func TestILLMServiceIntegration(t *testing.T) {
-	// Skip test if required environment variables are not set
-	if !hasRequiredEnvVars() {
-		t.Skip("Skipping test: required environment variables not set")
-	}
-
 	// Create LLM service
 	service, err := NewLLMService(option.OPENAI_GPT_4O)
 	require.NoError(t, err)
