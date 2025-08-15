@@ -1,11 +1,14 @@
 package uixt
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,6 +21,7 @@ import (
 	"github.com/httprunner/httprunner/v5/code"
 	"github.com/httprunner/httprunner/v5/internal/builtin"
 	"github.com/httprunner/httprunner/v5/internal/config"
+	"github.com/httprunner/httprunner/v5/internal/json"
 	"github.com/httprunner/httprunner/v5/uixt/option"
 )
 
@@ -350,34 +354,110 @@ func DownloadFileByUrl(fileUrl string) (filePath string, err error) {
 	// Build the HTTP GET request.
 	req, err := http.NewRequest("GET", fileUrl, nil)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(code.NetworkError, err.Error())
 	}
 
 	// Perform the request.
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(code.NetworkError, err.Error())
 	}
 	defer resp.Body.Close()
 
 	// Check the HTTP status code.
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to download file: %s", resp.Status)
+		return "", errors.Wrap(code.NetworkError, fmt.Errorf("failed to download file: %s", resp.Status).Error())
 	}
 
 	// Create the output file.
 	outFile, err := os.Create(filePath)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(code.MobileUIDriverError, err.Error())
 	}
 	defer outFile.Close()
 
 	// Copy the response body to the file.
 	_, err = io.Copy(outFile, resp.Body)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(code.NetworkError, err.Error())
 	}
 
 	log.Info().Str("filePath", filePath).Msg("download file success")
 	return filePath, nil
+}
+
+// uploadScreenshot uploads a screenshot to the server and returns the URL
+func uploadScreenshot(imagePath string, imageBuffer *bytes.Buffer) (string, error) {
+	// Create a new buffer for the multipart form
+	var requestBody bytes.Buffer
+	writer := multipart.NewWriter(&requestBody)
+
+	// Create a form file field
+	fileField, err := writer.CreateFormFile("file", filepath.Base(imagePath))
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create form file")
+	}
+
+	// Copy the image buffer to the form file field
+	if _, err := io.Copy(fileField, bytes.NewReader(imageBuffer.Bytes())); err != nil {
+		return "", errors.Wrap(err, "failed to copy image data")
+	}
+
+	// Close the multipart writer
+	if err := writer.Close(); err != nil {
+		return "", errors.Wrap(err, "failed to close multipart writer")
+	}
+
+	// Create the HTTP request
+	uploadURL := "https://gtf-eapi-cn.bytedance.com/cn/upload/xxx"
+	req, err := http.NewRequest("POST", uploadURL, &requestBody)
+	if err != nil {
+		return "", errors.Wrap(code.UploadFailed, err.Error())
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("accessKey", "ies.vedem.video")
+	req.Header.Set("token", "***REMOVED***")
+
+	// Create HTTP client with HTTP/1.1 support
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSNextProto: make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
+		},
+	}
+
+	// Send the request
+	log.Debug().Str("url", uploadURL).Str("imagePath", imagePath).Msg("uploading screenshot")
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", errors.Wrap(code.UploadFailed, err.Error())
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", errors.Wrap(code.UploadFailed, err.Error())
+	}
+
+	// Parse the response JSON
+	var result struct {
+		StatusCode int         `json:"StatusCode"`
+		Data       interface{} `json:"Data"`
+		URL        string      `json:"URL"`
+	}
+
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		log.Warn().Err(err).Str("response", string(respBody)).Msg("failed to parse upload response")
+		return "", errors.Wrap(code.UploadFailed, "failed to parse response JSON")
+	}
+
+	// Check if the upload was successful
+	if result.StatusCode != 0 {
+		return "", fmt.Errorf("upload failed with status code: %d", result.StatusCode)
+	}
+
+	log.Debug().Str("url", result.URL).Msg("screenshot uploaded successfully")
+	return result.URL, nil
 }
