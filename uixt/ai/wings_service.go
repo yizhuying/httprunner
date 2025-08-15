@@ -163,11 +163,8 @@ func (w *WingsService) Assert(ctx context.Context, opts *AssertOptions) (*Assert
 		return nil, errors.Wrap(err, "validate assertion parameters failed")
 	}
 
-	// Clean screenshot data URL prefix
-	cleanScreenshot := w.cleanScreenshotDataURL(opts.Screenshot)
-
 	// Get device info from context (if available)
-	deviceInfos := w.getDeviceInfoFromScreenshot(ctx, cleanScreenshot)
+	deviceInfos := w.getDeviceInfoFromScreenshot(ctx, opts.Screenshot)
 
 	// Prepare Wings API request for assertion
 	apiRequest := WingsActionRequest{
@@ -387,16 +384,7 @@ func (w *WingsService) extractScreenshotFromMessage(message *schema.Message) (st
 
 	for _, content := range message.MultiContent {
 		if content.Type == schema.ChatMessagePartTypeImageURL && content.ImageURL != nil {
-			// Extract base64 data from data URL
-			screenshot := content.ImageURL.URL
-			if strings.HasPrefix(screenshot, "data:image/") {
-				// Remove data URL prefix
-				parts := strings.Split(screenshot, ",")
-				if len(parts) == 2 {
-					return parts[1], nil
-				}
-			}
-			return screenshot, nil
+			return content.ImageURL.URL, nil
 		}
 	}
 
@@ -408,17 +396,17 @@ func (w *WingsService) getDeviceInfoFromContext(_ context.Context, screenshot st
 	// TODO: Extract device info from context if available
 
 	// Use last history's NowImage as PreImage if history exists
-	preImage := screenshot
+	preImageUrl := screenshot
 	if len(w.history) > 0 && w.history[len(w.history)-1].DeviceInfos != nil && len(*w.history[len(w.history)-1].DeviceInfos) > 0 {
-		preImage = (*w.history[len(w.history)-1].DeviceInfos)[0].NowImage
+		preImageUrl = (*w.history[len(w.history)-1].DeviceInfos)[0].NowImageUrl
 	}
 
 	// use default device info with optimized PreImage
 	return []WingsDeviceInfo{
 		{
 			DeviceID:        "default-device",
-			NowImage:        screenshot,
-			PreImage:        preImage,
+			NowImageUrl:     screenshot,
+			PreImageUrl:     preImageUrl,
 			NowLayoutJSON:   "",
 			OperationSystem: "android",
 		},
@@ -484,7 +472,7 @@ func (w *WingsService) callWingsAPI(ctx context.Context, request WingsActionRequ
 	defer resp.Body.Close()
 
 	logID := resp.Header.Get("X-Tt-Logid")
-	log.Info().Str("step_text", request.StepText).Str("log_id", logID).Str("biz_id", request.BizId).Str("url", w.apiURL).Msg("call wings api")
+	log.Info().Str("step_text", request.StepText).Str("image_url", request.DeviceInfos[0].NowImageUrl).Str("log_id", logID).Str("biz_id", request.BizId).Str("url", w.apiURL).Msg("call wings api")
 
 	// Read response body
 	responseBody, err := io.ReadAll(resp.Body)
