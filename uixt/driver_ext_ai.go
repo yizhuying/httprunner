@@ -249,7 +249,7 @@ func (dExt *XTDriver) AIAssert(assertion string, opts ...option.ActionOption) (*
 
 	// Parse action options to get ResetHistory setting
 	options := option.NewActionOptions(opts...)
-	screenOptions := []option.ActionOption{option.WithScreenShotFileName("ai_action"), option.WithScreenShotBase64(true)}
+	screenOptions := []option.ActionOption{option.WithScreenShotFileName("ai_assert"), option.WithScreenShotBase64(true)}
 	if options.ScreenShotWithUpload {
 		screenOptions = append(screenOptions, option.WithScreenShotUpload(true))
 	}
@@ -306,7 +306,7 @@ func (dExt *XTDriver) PlanNextAction(ctx context.Context, prompt string, opts ..
 	// Parse action options to get ResetHistory setting
 	options := option.NewActionOptions(opts...)
 	resetHistory := options.ResetHistory
-	screenOptions := []option.ActionOption{option.WithScreenShotFileName("ai_action"), option.WithScreenShotBase64(true)}
+	screenOptions := []option.ActionOption{option.WithScreenShotFileName("ai_planning"), option.WithScreenShotBase64(true)}
 	if options.ScreenShotWithUpload {
 		screenOptions = append(screenOptions, option.WithScreenShotUpload(true))
 	}
