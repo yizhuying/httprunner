@@ -190,7 +190,6 @@ var errorsMap = map[error]int{
 	DeviceScreenShotError:    65,
 	DeviceCaptureLogError:    66,
 	DeviceUIResponseSlow:     67,
-	DeviceUntrustedCertError: 68,
 
 	// UI automation related
 	MobileUIDriverAppNotInstalled:         68,
