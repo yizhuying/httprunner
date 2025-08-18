@@ -386,8 +386,18 @@ func DownloadFileByUrl(fileUrl string) (filePath string, err error) {
 	return filePath, nil
 }
 
+var (
+	VEDEM_UPLOAD_URL        = os.Getenv("VEDEM_UPLOAD_URL")
+	VEDEM_UPLOAD_ACCESS_KEY = os.Getenv("VEDEM_UPLOAD_ACCESS_KEY")
+	VEDEM_UPLOAD_TOKEN      = os.Getenv("VEDEM_UPLOAD_TOKEN")
+)
+
 // uploadScreenshot uploads a screenshot to the server and returns the URL
 func uploadScreenshot(imagePath string, imageBuffer *bytes.Buffer) (string, error) {
+	if VEDEM_UPLOAD_URL == "" || VEDEM_UPLOAD_ACCESS_KEY == "" || VEDEM_UPLOAD_TOKEN == "" {
+		return "", errors.Wrap(code.ConfigureError, "upload service env not configured")
+	}
+
 	// Create a new buffer for the multipart form
 	var requestBody bytes.Buffer
 	writer := multipart.NewWriter(&requestBody)
@@ -409,16 +419,15 @@ func uploadScreenshot(imagePath string, imageBuffer *bytes.Buffer) (string, erro
 	}
 
 	// Create the HTTP request
-	uploadURL := "https://gtf-eapi-cn.bytedance.com/cn/upload/xxx"
-	req, err := http.NewRequest("POST", uploadURL, &requestBody)
+	req, err := http.NewRequest("POST", VEDEM_UPLOAD_URL, &requestBody)
 	if err != nil {
 		return "", errors.Wrap(code.UploadFailed, err.Error())
 	}
 
 	// Set headers
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("accessKey", "ies.vedem.video")
-	req.Header.Set("token", "***REMOVED***")
+	req.Header.Set("accessKey", VEDEM_UPLOAD_ACCESS_KEY)
+	req.Header.Set("token", VEDEM_UPLOAD_TOKEN)
 
 	// Create HTTP client with HTTP/1.1 support
 	client := &http.Client{
@@ -428,7 +437,7 @@ func uploadScreenshot(imagePath string, imageBuffer *bytes.Buffer) (string, erro
 	}
 
 	// Send the request
-	log.Debug().Str("url", uploadURL).Str("imagePath", imagePath).Msg("uploading screenshot")
+	log.Debug().Str("url", VEDEM_UPLOAD_URL).Str("imagePath", imagePath).Msg("uploading screenshot")
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", errors.Wrap(code.UploadFailed, err.Error())
